@@ -89,6 +89,7 @@ namespace LinqToDB.Mapping
 			}
 			else if (schemas.Length == 1)
 			{
+				schemas[0].Freeze();
 				Schemas = new MappingSchemaInfo[1 + schemas[0].Schemas.Length];
 				Schemas[0] = schemaInfo;
 				Array.Copy(schemas[0].Schemas, 0, Schemas, 1, schemas[0].Schemas.Length);
@@ -111,6 +112,7 @@ namespace LinqToDB.Mapping
 
 				foreach (var schema in schemas)
 				{
+					schema.Freeze();
 					foreach (var sc in schema.Schemas)
 						schemaList[sc] = i++;
 
@@ -126,6 +128,26 @@ namespace LinqToDB.Mapping
 		}
 
 		internal readonly MappingSchemaInfo[] Schemas;
+
+		#endregion
+
+		#region Frozen
+
+		/// <summary>
+		/// Freezes MappingSchema
+		/// </summary>
+		public void Freeze()
+		{
+			this.isFrozen = true;
+		}
+
+		private bool isFrozen = false;
+
+		/// <summary>
+		/// If a Mappingschema is Frozen, it can not be changed any more.
+		/// MappingSchemas are automaticly freezed when used for DataAccess
+		/// </summary>
+		public bool IsFrozen => isFrozen;
 
 		#endregion
 
@@ -1093,6 +1115,8 @@ namespace LinqToDB.Mapping
 		/// <returns>Fluent mapping builder.</returns>
 		public FluentMappingBuilder GetFluentMappingBuilder()
 		{
+			if (this.isFrozen)
+				throw new InvalidOperationException("The MappingSchema could not be changed it's frozen");
 			return new FluentMappingBuilder(this);
 		}
 
@@ -1519,6 +1543,7 @@ namespace LinqToDB.Mapping
 		/// <returns>Mapping descriptor.</returns>
 		public EntityDescriptor GetEntityDescriptor(Type type)
 		{
+			this.isFrozen = true;
 			var key = new { Type = type, ConfigurationID };
 			var ed = EntityDescriptorsCache.GetOrCreate(key,
 				o =>
