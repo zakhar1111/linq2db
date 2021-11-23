@@ -11,6 +11,7 @@ using NUnit.Framework;
 
 namespace Tests.Linq
 {
+	using FluentAssertions;
 	using LinqToDB.Linq;
 	using Model;
 
@@ -1181,5 +1182,36 @@ namespace Tests.Linq
 		}
 		#endregion
 
+		private class Issue3359ЗProjection
+		{
+			public string FirstName { get; set; } = null!;
+			public string LastName  { get; set; } = null!;
+		}
+
+		[Test(Description = "Test that we generate plain UNION without sub-queries (or query will be invalid)")]
+		public void Issue3359_MultipleSets([CteContextSource] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query = db.GetCte<Issue3359ЗProjection>(cte =>
+			{
+				return db.Person.Select(p => new Issue3359ЗProjection() { FirstName = p.FirstName, LastName = p.LastName })
+				.Concat(
+					from p in cte
+					join d in db.Doctor on p.FirstName equals d.Taxonomy
+					select new Issue3359ЗProjection() { FirstName = p.FirstName, LastName = p.LastName }
+					)
+				.Concat(
+					from p in cte
+					join pat in db.Patient on p.FirstName equals pat.Diagnosis
+					select new Issue3359ЗProjection() { FirstName = p.FirstName, LastName = p.LastName }
+					);
+			});
+
+			query.ToArray();
+
+			if (db is TestDataConnection cn)
+				cn.LastQuery!.Should().Contain("SELECT", Exactly.Times(4));
+		}
 	}
 }

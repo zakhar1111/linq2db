@@ -1039,8 +1039,20 @@ namespace Tests.Linq
 			var query = query1.UnionAll(query2);
 
 			query.Invoking(q => q.ToList()).Should().NotThrow();
-		}		
+		}
 
+		[Test(Description = "Test that we generate plain UNION without sub-queries")]
+		public void Issue3359_MultipleSets([DataSources(false)] string context)
+		{
+			using var db = (TestDataConnection)GetDataContext(context);
 
+			var query1 = db.Person.Select(p => new { p.FirstName, p.LastName });
+			var query2 = db.Person.Select(p => new { p.FirstName, p.LastName });
+			var query3 = db.Person.Select(p => new { p.FirstName, p.LastName });
+
+			query1.Concat(query2).Concat(query3).ToArray();
+
+			db.LastQuery!.Should().Contain("SELECT", Exactly.Thrice());
+		}
 	}
 }
