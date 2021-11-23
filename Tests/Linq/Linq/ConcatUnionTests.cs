@@ -1354,7 +1354,7 @@ namespace Tests.Linq
 				.ToList();
 		}
 
-		[Test(Description = "NullReferenceException : Object reference not set to an instance of an object.")]
+		[Test(Description = "set query with ORDER BY requires wrapping into subquery for some DBs")]
 		public void Issue2619_Query1([DataSources] string context)
 		{
 			using var db = GetDataContext(context);
@@ -1365,7 +1365,7 @@ namespace Tests.Linq
 				.ToList();
 		}
 
-		[Test(Description = "NullReferenceException : Object reference not set to an instance of an object.")]
+		[Test(Description = "set query with ORDER BY requires wrapping into subquery for some DBs")]
 		public void Issue2619_Query2([DataSources] string context)
 		{
 			using var db = GetDataContext(context);
@@ -1374,6 +1374,49 @@ namespace Tests.Linq
 				.Union((from item in db.Person select item)
 				.OrderBy(i => i.ID))
 				.ToList();
+		}
+
+		[Test(Description = "ArgumentOutOfRangeException : Index was out of range. Must be non-negative and less than the size of the collection.")]
+		public void Issue2511_Query1([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			db.Person.LoadWith(p => p.Patient).Concat(db.Person.LoadWith(p => p.Patient).Take(2)).ToArray();
+		}
+
+		[Test(Description = "Associations with Concat/Union or other Set operations are not supported")]
+		public void Issue2511_Query2([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			db.Person.LoadWith(p => p.Patient)
+				.Select(p => new Person()
+				{
+					FirstName  = p.FirstName,
+					LastName   = p.LastName,
+					MiddleName = p.MiddleName,
+					Gender     = p.Gender,
+					Patient    = p.Patient
+				}).Take(2)
+				.Concat(db.Person.LoadWith(p => p.Patient))
+				.ToArray();
+		}
+
+		[Test(Description = "Working version of Issue2511_Query2")]
+		public void Issue2511_Query3([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			db.Person.LoadWith(p => p.Patient)
+				.Select(p => new Person()
+				{
+					FirstName  = p.FirstName,
+					LastName   = p.LastName,
+					MiddleName = p.MiddleName,
+					Gender     = p.Gender,
+				}).Take(2)
+				.Concat(db.Person.LoadWith(p => p.Patient))
+				.ToArray();
 		}
 	}
 }
