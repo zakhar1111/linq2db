@@ -1106,5 +1106,52 @@ namespace Tests.Linq
 			if (db is TestDataConnection dc2)
 				dc2.LastQuery!.Should().NotContain("N'");
 		}
+
+		public record class  Issue3357RecordClass (string FirstName, string LastName);
+		public record struct Issue3357RecordStruct(string FirstName, string LastName);
+		public class Issue3357RecordLike
+		{
+			public Issue3357RecordLike(string FirstName, string LastName)
+			{
+				this.FirstName = FirstName;
+				this.LastName  = LastName;
+			}
+
+			public string FirstName { get; }
+			public string LastName  { get; }
+		}
+
+		[Test(Description = "record type support")]
+		public void Issue3357_RecordClass([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query1 = db.Person.Select(p => new Issue3357RecordClass(p.FirstName, p.LastName));
+			var query2 = db.Person.Select(p => new Issue3357RecordClass(p.FirstName, p.LastName));
+
+			query1.Concat(query2).ToArray();
+		}
+
+		[Test(Description = "record type support")]
+		public void Issue3357_RecordStruct([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query1 = db.Person.Select(p => new Issue3357RecordStruct(p.FirstName, p.LastName));
+			var query2 = db.Person.Select(p => new Issue3357RecordStruct(p.FirstName, p.LastName));
+
+			query1.Concat(query2).ToArray();
+		}
+
+		[Test(Description = "record type support")]
+		public void Issue3357_RecordLikeClass([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query1 = db.Person.Select(p => new Issue3357RecordLike(p.FirstName, p.LastName));
+			var query2 = db.Person.Select(p => new Issue3357RecordLike(p.FirstName, p.LastName));
+
+			query1.Concat(query2).ToArray();
+		}
 	}
 }

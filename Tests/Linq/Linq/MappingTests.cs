@@ -539,6 +539,8 @@ namespace Tests.Linq
 		public record Record(int Id, string Value, string BaseValue) : RecordBase(Id, BaseValue);
 		public abstract record RecordBase(int Id, string BaseValue);
 
+		public record struct RecordStruct(int Id, string Value, string BaseValue);
+
 		public class RecordLike : RecordLikeBase
 		{
 			public RecordLike(int Id, string Value, string BaseValue)
@@ -604,6 +606,43 @@ namespace Tests.Linq
 				Assert.AreEqual(1        , proj[0].Id);
 				Assert.AreEqual("One"    , proj[0].Value);
 				Assert.AreEqual("OneBase", proj[0].BaseValue );
+				Assert.AreEqual(2        , proj[1].Id);
+				Assert.AreEqual("Two"    , proj[1].Value);
+				Assert.AreEqual("TwoBase", proj[1].BaseValue);
+			}
+		}
+
+		[Test]
+		public void TestRecordStructMapping([IncludeDataSources(true, TestProvName.AllSQLite)] string context)
+		{
+			var ms = new MappingSchema();
+			ms.GetFluentMappingBuilder().Entity<RecordStruct>()
+				.Property(p => p.Id).IsPrimaryKey()
+				.Property(p => p.Value)
+				.Property(p => p.BaseValue);
+
+			using (var db = GetDataContext(context, ms))
+			using (var table = db.CreateLocalTable<RecordStruct>())
+			{
+				db.Insert(new RecordStruct(1, "One", "OneBase"));
+				db.Insert(new RecordStruct(2, "Two", "TwoBase"));
+
+				var data = table.OrderBy(r => r.Id).ToArray();
+
+				Assert.AreEqual(2        , data.Length);
+				Assert.AreEqual(1        , data[0].Id);
+				Assert.AreEqual("One"    , data[0].Value);
+				Assert.AreEqual("OneBase", data[0].BaseValue);
+				Assert.AreEqual(2        , data[1].Id);
+				Assert.AreEqual("Two"    , data[1].Value);
+				Assert.AreEqual("TwoBase", data[1].BaseValue);
+
+				var proj = table.OrderBy(r => r.Id).Select(r => new { r.Id, r.Value, r.BaseValue }).ToArray();
+
+				Assert.AreEqual(2        , proj.Length);
+				Assert.AreEqual(1        , proj[0].Id);
+				Assert.AreEqual("One"    , proj[0].Value);
+				Assert.AreEqual("OneBase", proj[0].BaseValue);
 				Assert.AreEqual(2        , proj[1].Id);
 				Assert.AreEqual("Two"    , proj[1].Value);
 				Assert.AreEqual("TwoBase", proj[1].BaseValue);

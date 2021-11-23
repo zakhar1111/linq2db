@@ -1279,5 +1279,73 @@ namespace Tests.Linq
 			if (db is TestDataConnection dc)
 				dc.LastQuery!.Should().NotContain("N'");
 		}
+
+		public record class  Issue3357RecordClass (string FirstName, string LastName);
+		public record struct Issue3357RecordStruct(string FirstName, string LastName);
+		public class Issue3357RecordLike
+		{
+			public Issue3357RecordLike(string FirstName, string LastName)
+			{
+				this.FirstName = FirstName;
+				this.LastName  = LastName;
+			}
+
+			public string FirstName { get; }
+			public string LastName  { get; }
+		}
+
+		[Test(Description = "record type support")]
+		public void Issue3357_RecordClass([CteContextSource] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query = db.GetCte<Issue3357RecordClass>(cte =>
+			{
+				return db.Person.Select(p => new Issue3357RecordClass(p.FirstName, p.LastName))
+				.Concat(
+					from p in cte
+					join r in db.Person on p.FirstName equals r.LastName
+					select new Issue3357RecordClass(r.FirstName, r.LastName)
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Test(Description = "record type support")]
+		public void Issue3357_RecordStruct([CteContextSource] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query = db.GetCte<Issue3357RecordStruct>(cte =>
+			{
+				return db.Person.Select(p => new Issue3357RecordStruct(p.FirstName, p.LastName))
+				.Concat(
+					from p in cte
+					join r in db.Person on p.FirstName equals r.LastName
+					select new Issue3357RecordStruct(r.FirstName, r.LastName)
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Test(Description = "record type support")]
+		public void Issue3357_RecordLikeClass([CteContextSource] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query = db.GetCte<Issue3357RecordLike>(cte =>
+			{
+				return db.Person.Select(p => new Issue3357RecordLike(p.FirstName, p.LastName))
+				.Concat(
+					from p in cte
+					join r in db.Person on p.FirstName equals r.LastName
+					select new Issue3357RecordLike(r.FirstName, r.LastName)
+					);
+			});
+
+			query.ToArray();
+		}
 	}
 }
