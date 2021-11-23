@@ -1252,5 +1252,20 @@ namespace Tests.Linq
 
 			tb.Concat(tb).ToArray();
 		}
+
+		[Test(Description = "preserve constant columns")]
+		public void Issue3150([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query1 = db.Person.Where(p => p.ID == 1).Select(p => new { p.ID, Name = new { p.FirstName, Marker = "id=1" } });
+			var query2 = db.Person.Where(p => p.ID == 2).Select(p => new { p.ID, Name = new { p.FirstName, Marker = "id=2" } });
+
+			var result = query1.Concat(query2).ToArray();
+
+			Assert.AreEqual(2, result.Length);
+			Assert.AreEqual(1, result.Select(r => r.Name.Marker == "id=1").Count());
+			Assert.AreEqual(1, result.Select(r => r.Name.Marker == "id=2").Count());
+		}
 	}
 }
