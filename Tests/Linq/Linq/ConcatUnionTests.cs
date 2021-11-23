@@ -1054,5 +1054,57 @@ namespace Tests.Linq
 
 			db.LastQuery!.Should().Contain("SELECT", Exactly.Thrice());
 		}
+
+		[Table]
+		private class Issue3360Table
+		{
+			[PrimaryKey                         ] public int     Id  { get; set; }
+			// by default we generate N-literal, which is not compatible with (var)char
+			[Column(DataType = DataType.VarChar)] public string? Str { get; set; }
+		}
+
+		[Test(Description = "Test that we type literal/parameter in set query column properly")]
+		public void Issue3360_TypeByOtherQuery(
+			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
+			[Values] bool inline)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
+
+			db.InlineParameters = inline;
+
+			var query1 = tb.Select(p => new { p.Id, p.Str                });
+			var query2 = tb.Select(p => new { p.Id, Str = (string?)"str" });
+
+			query1.Concat(query2).ToArray();
+			if (db is TestDataConnection dc1)
+				dc1.LastQuery!.Should().NotContain("N'");
+
+			query2.Concat(query1).ToArray();
+			if (db is TestDataConnection dc2)
+				dc2.LastQuery!.Should().NotContain("N'");
+		}
+
+		[Test(Description = "Test that we type literal/parameter in set query column properly")]
+		public void Issue3360_TypeByProjectionProperty(
+			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
+			[Values] bool inline)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
+
+			db.InlineParameters = inline;
+
+			var query1 = tb.Select(p => new Issue3360Table() { Id = p.Id, Str = (string?)"str1" });
+			var query2 = tb.Select(p => new Issue3360Table() { Id = p.Id, Str = (string?)"str2" });
+
+			query1.Concat(query2).ToArray();
+			if (db is TestDataConnection dc1)
+				dc1.LastQuery!.Should().NotContain("N'");
+
+			query2.Concat(query1).ToArray();
+			if (db is TestDataConnection dc2)
+				dc2.LastQuery!.Should().NotContain("N'");
+		}
 	}
 }

@@ -1213,5 +1213,71 @@ namespace Tests.Linq
 			if (db is TestDataConnection cn)
 				cn.LastQuery!.Should().Contain("SELECT", Exactly.Times(4));
 		}
+
+		[Table]
+		private class Issue3360Table
+		{
+			[PrimaryKey] public int Id { get; set; }
+			// by default we generate N-literal, which is not compatible with (var)char
+			[Column(DataType = DataType.VarChar)] public string? Str { get; set; }
+		}
+
+		private class Issue3360Projection
+		{
+			public int     Id  { get; set; }
+			public string? Str { get; set; }
+		}
+
+		// SqlException : Types don't match between the anchor and the recursive part in column "Str" of recursive query "cte".
+		[Test(Description = "Test that we type literal/parameter in set query column properly")]
+		public void Issue3360_TypeByOtherQuery(
+			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
+			[Values] bool inline)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
+
+			db.InlineParameters = inline;
+
+			var query = db.GetCte<Issue3360Projection>(cte =>
+			{
+				return tb.Select(p => new Issue3360Projection() { Id = p.Id, Str = p.Str })
+				.Concat(
+					from p in cte
+					join r in tb on p.Id equals r.Id + 1
+					select new Issue3360Projection() { Id = p.Id, Str = "Str" }
+					);
+			});
+
+
+			query.ToArray();
+			if (db is TestDataConnection dc)
+				dc.LastQuery!.Should().NotContain("N'");
+		}
+
+		[Test(Description = "Test that we type literal/parameter in set query column properly")]
+		public void Issue3360_TypeByProjectionProperty(
+			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
+			[Values] bool inline)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
+
+			db.InlineParameters = inline;
+
+			var query = db.GetCte<Issue3360Table>(cte =>
+			{
+				return tb.Select(p => new Issue3360Table() { Id = p.Id, Str = "Str1" })
+				.Concat(
+					from p in cte
+					join r in tb on p.Id equals r.Id + 1
+					select new Issue3360Table() { Id = p.Id, Str = "Str2" }
+					);
+			});
+
+			query.ToArray();
+			if (db is TestDataConnection dc)
+				dc.LastQuery!.Should().NotContain("N'");
+		}
 	}
 }
