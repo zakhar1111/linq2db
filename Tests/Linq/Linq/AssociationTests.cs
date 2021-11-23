@@ -1258,6 +1258,14 @@ namespace Tests.Linq
 		}
 
 		#endregion
+
+		[Test(Description = "association over set query")]
+		public void Issue2966([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			db.Patient.Concat(db.Patient).Select(r => new { r.Diagnosis, r.Person.FirstName }).ToArray();
+		}
 	}
 
 	public static class AssociationExtension
