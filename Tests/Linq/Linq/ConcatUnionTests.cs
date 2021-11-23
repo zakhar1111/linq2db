@@ -1353,5 +1353,27 @@ namespace Tests.Linq
 				})
 				.ToList();
 		}
+
+		[Test(Description = "NullReferenceException : Object reference not set to an instance of an object.")]
+		public void Issue2619_Query1([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			((from item in db.Person select item)
+				.OrderBy(i => i.ID))
+				.Union((from item in db.Person select item))
+				.ToList();
+		}
+
+		[Test(Description = "NullReferenceException : Object reference not set to an instance of an object.")]
+		public void Issue2619_Query2([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			(from item in db.Person select item)
+				.Union((from item in db.Person select item)
+				.OrderBy(i => i.ID))
+				.ToList();
+		}
 	}
 }
