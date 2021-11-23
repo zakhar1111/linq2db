@@ -1178,5 +1178,54 @@ namespace Tests.Linq
 
 			query1.Concat(query2).ToArray();
 		}
+
+		[Table]
+		[Column(MemberName = $"{nameof(Name)}.{nameof(FullName.FirstName)}")]
+		[Column(MemberName = $"{nameof(Name)}.{nameof(FullName.LastName)}")]
+		public class ComplexPerson // nobody's simple nowadays
+		{
+			[PrimaryKey] public int       Id   { get; set; }
+			             public FullName? Name { get; set; }
+		}
+
+		public class FullName
+		{
+			public string? FirstName { get; set; }
+			public string? LastName  { get; set; }
+		}
+
+		[Test(Description = "composite columns in union (also tests create table)")]
+		public void Issue3346_ProjectionBuild([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<ComplexPerson>();
+
+			var query1 = from x in tb
+						 where x.Id < 10
+						 select x;
+
+			var query2 = from x in tb
+						 where x.Id < 20
+						 select x;
+
+			query1.Union(query2).ToArray();
+		}
+
+		[Test(Description = "composite columns in union (also tests create table)")]
+		public void Issue3346_Count([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<ComplexPerson>();
+
+			var query1 = from x in tb
+						 where x.Id < 10
+						 select x;
+
+			var query2 = from x in tb
+						 where x.Id < 20
+						 select x;
+
+			query1.Union(query2).Count();
+		}
 	}
 }
