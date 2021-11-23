@@ -1107,6 +1107,31 @@ namespace Tests.Linq
 				dc2.LastQuery!.Should().NotContain("N'");
 		}
 
+		[Test(Description = "Test that we type non-field union column properly")]
+		public void Issue2451_ComplexColumn(
+			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
+			[Values] bool inline)
+		{
+			using var db = GetDataContext(context);
+
+			db.InlineParameters = inline;
+
+			var query1 = db.Person.Select(p => new Person() { FirstName = p.FirstName });
+			var query2 = db.Person.Select(p => new Person() { FirstName = p.FirstName + '/' + p.LastName });
+
+			query1.Concat(query2).ToArray();
+
+			// too many things is wrong here:
+			// [p].[FirstName] + Convert(VarChar(4000), N'/') + [p].[LastName]
+			// 1. why we cast N-literal to varchar instead of varchar literal generation
+			// 2. why we even mention varchar in expression with N-columns only
+			if (db is TestDataConnection dc1)
+				dc1.LastQuery!.Should().NotContain("Convert(VarChar");
+			query2.Concat(query1).ToArray();
+			if (db is TestDataConnection dc2)
+				dc2.LastQuery!.Should().NotContain("Convert(VarChar");
+		}
+
 		public record class  Issue3357RecordClass (string FirstName, string LastName);
 		public record struct Issue3357RecordStruct(string FirstName, string LastName);
 		public class Issue3357RecordLike

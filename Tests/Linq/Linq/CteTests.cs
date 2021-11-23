@@ -1280,6 +1280,31 @@ namespace Tests.Linq
 				dc.LastQuery!.Should().NotContain("N'");
 		}
 
+		[Test(Description = "Test that we type non-field union column properly")]
+		public void Issue2451_ComplexColumn(
+			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
+			[Values] bool inline)
+		{
+			using var db = GetDataContext(context);
+
+			db.InlineParameters = inline;
+
+			var query = db.GetCte<Person>(cte =>
+			{
+				return db.Person.Select(p => new Person() { FirstName = p.FirstName })
+				.Concat(
+					from p in cte
+					join r in db.Person on p.FirstName equals r.LastName
+					select new Person() { FirstName = r.FirstName + '/' + r.LastName }
+					);
+			});
+
+			query.ToArray();
+
+			if (db is TestDataConnection dc)
+				dc.LastQuery!.Should().NotContain("Convert(VarChar");
+		}
+
 		public record class  Issue3357RecordClass (string FirstName, string LastName);
 		public record struct Issue3357RecordStruct(string FirstName, string LastName);
 		public class Issue3357RecordLike
