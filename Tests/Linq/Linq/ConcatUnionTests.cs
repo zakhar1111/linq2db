@@ -1298,5 +1298,25 @@ namespace Tests.Linq
 
 			var res = first.Concat(second).Concat(third).ToList();
 		}
+
+		[Test(Description = "invalid SQL for Any() subquery")]
+		public void Issue2932_Broken([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query = db.Child.Select(p => new { p.ChildID, Sub = p.GrandChildren.Any() });
+
+			query.Concat(query).ToArray();
+		}
+
+		[Test(Description = "invalid SQL for Any() subquery")]
+		public void Issue2932_Works([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query = db.Child.Select(p => new { p.ChildID, Sub = p.GrandChildren.Any() ? true : false });
+
+			query.Concat(query).ToArray();
+		}
 	}
 }
