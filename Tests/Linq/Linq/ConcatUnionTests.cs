@@ -1318,5 +1318,40 @@ namespace Tests.Linq
 
 			query.Concat(query).ToArray();
 		}
+
+		[Test(Description = "NullReferenceException : Object reference not set to an instance of an object.")]
+		public void Issue2505([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var src = db.Person.AsQueryable();
+
+			var query1 = src.Select(i => new
+			{
+				Person = i,
+				Gender = i.MiddleName == null ? Gender.Male : Gender.Other,
+			});
+
+			var query2 = src.Select(i => new
+			{
+				Person = i,
+				Gender = i.MiddleName == null ? Gender.Male : Gender.Other,
+			});
+
+			query1
+				.UnionAll(query2)
+				.Select(i => new
+				{
+					Person = i.Person,
+					Gender = i.Gender,
+				})
+				.Where(i => i.Gender == Gender.Other)
+				.OrderByDescending(i => i.Person.FirstName)
+				.Select(i => new
+				{
+					Account = i.Person.LastName
+				})
+				.ToList();
+		}
 	}
 }
