@@ -8,6 +8,8 @@ using NUnit.Framework;
 
 namespace Tests.Linq
 {
+	using System;
+	using System.Linq.Expressions;
 	using Model;
 
 
@@ -1226,6 +1228,29 @@ namespace Tests.Linq
 						 select x;
 
 			query1.Union(query2).Count();
+		}
+
+		[Table]
+		public class Issue3323Table
+		{
+			[PrimaryKey                      ] public int Id { get; set; }
+			[Column(SkipOnEntityFetch = true)] public string? FistName { get; set; }
+			[Column(SkipOnEntityFetch = true)] public string? LastName { get; set; }
+
+			[ExpressionMethod(nameof(FullNameExpr), IsColumn = true)]
+			public string FullName { get; set; } = null!;
+
+
+			private static Expression<Func<Issue3323Table, string>> FullNameExpr() => entity => entity.FistName + " " + entity.LastName;
+		}
+
+		[Test(Description = "calculated column in set select")]
+		public void Issue3323([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3323Table>();
+
+			tb.Concat(tb).ToArray();
 		}
 	}
 }
