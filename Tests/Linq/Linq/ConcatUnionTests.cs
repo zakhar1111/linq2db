@@ -1267,5 +1267,36 @@ namespace Tests.Linq
 			Assert.AreEqual(1, result.Select(r => r.Name.Marker == "id=1").Count());
 			Assert.AreEqual(1, result.Select(r => r.Name.Marker == "id=2").Count());
 		}
+
+		public class Issue2948MyModel
+		{
+			public int    Id   { get; set; }
+			public string Name { get; set; } = null!;
+		}
+
+		public class Issue2948RankData<T>
+		{
+			public long Rank  { get; set; }
+			public T    Model { get; set; } = default!;
+		}
+
+		[Test(Description = "InvalidCastException : Unable to cast object of type 'System.Linq.Expressions.MemberMemberBinding' to type 'System.Linq.Expressions.MemberAssignment'.")]
+		public void Issue2948([IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var main = (from p in db.Person
+						select new Issue2948RankData<Issue2948MyModel>()
+						{
+							Model = { Id = p.ID, Name = p.FirstName },
+							Rank  = Sql.Ext.RowNumber().Over().PartitionBy(p.ID).OrderBy(p.ID).ToValue()
+						}).Where(x => x.Rank == 1).Select(x => x.Model).AsSubQuery();
+
+			var first  = main.Where(x => x.Id != 2);
+			var second = main.Where(x => x.Id == 2).OrderByDescending(x => x.Name).Take(1);
+			var third  = main.Where(x => x.Id != 3).OrderBy(x => x.Name).Take(1);
+
+			var res = first.Concat(second).Concat(third).ToList();
+		}
 	}
 }
