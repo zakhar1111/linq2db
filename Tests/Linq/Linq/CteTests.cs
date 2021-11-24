@@ -1182,29 +1182,43 @@ namespace Tests.Linq
 		}
 		#endregion
 
-		private class Issue3359ЗProjection
+		private class Issue3359Projection
 		{
 			public string FirstName { get; set; } = null!;
 			public string LastName  { get; set; } = null!;
 		}
 
 		[Test(Description = "Test that we generate plain UNION without sub-queries (or query will be invalid)")]
-		public void Issue3359_MultipleSets([CteContextSource] string context)
+		public void Issue3359_MultipleSets([CteContextSource(
+			TestProvName.AllOracle, // too many unions (ORA-32041: UNION ALL operation in recursive WITH clause must have only two branches)
+			TestProvName.AllPostgreSQL, // too many joins? (42P19: recursive reference to query "cte" must not appear within its non-recursive term)
+			ProviderName.DB2 // joins (SQL0345N  The fullselect of the recursive common table expression "cte" must be the UNION of two or more fullselects and cannot include column functions, GROUP BY clause, HAVING clause, ORDER BY clause, or an explicit join including an ON clause.)
+			)] string context)
 		{
+			if (context.Contains(ProviderName.SQLite))
+			{
+				using var dc = (TestDataConnection)GetDataContext(context.Replace(".LinqService", string.Empty));
+				if (TestUtils.GetSqliteVersion(dc) < new Version(3, 34))
+				{
+					// SQLite Error 1: 'circular reference: cte'.
+					Assert.Inconclusive("SQLite version 3.34.0 or greater required");
+				}
+			}
+
 			using var db = GetDataContext(context);
 
-			var query = db.GetCte<Issue3359ЗProjection>(cte =>
+			var query = db.GetCte<Issue3359Projection>(cte =>
 			{
-				return db.Person.Select(p => new Issue3359ЗProjection() { FirstName = p.FirstName, LastName = p.LastName })
+				return db.Person.Select(p => new Issue3359Projection() { FirstName = p.FirstName, LastName = p.LastName })
 				.Concat(
 					from p in cte
 					join d in db.Doctor on p.FirstName equals d.Taxonomy
-					select new Issue3359ЗProjection() { FirstName = p.FirstName, LastName = p.LastName }
+					select new Issue3359Projection() { FirstName = p.FirstName, LastName = p.LastName }
 					)
 				.Concat(
 					from p in cte
 					join pat in db.Patient on p.FirstName equals pat.Diagnosis
-					select new Issue3359ЗProjection() { FirstName = p.FirstName, LastName = p.LastName }
+					select new Issue3359Projection() { FirstName = p.FirstName, LastName = p.LastName }
 					);
 			});
 
@@ -1228,6 +1242,7 @@ namespace Tests.Linq
 			public string? Str { get; set; }
 		}
 
+		[ActiveIssue(3360)]
 		// SqlException : Types don't match between the anchor and the recursive part in column "Str" of recursive query "cte".
 		[Test(Description = "Test that we type literal/parameter in set query column properly")]
 		public void Issue3360_TypeByOtherQuery(
@@ -1280,6 +1295,7 @@ namespace Tests.Linq
 				dc.LastQuery!.Should().NotContain("N'");
 		}
 
+		[ActiveIssue(2451)]
 		[Test(Description = "Test that we type non-field union column properly")]
 		public void Issue2451_ComplexColumn(
 			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
@@ -1319,6 +1335,7 @@ namespace Tests.Linq
 			public string LastName  { get; }
 		}
 
+		[ActiveIssue(3357)]
 		[Test(Description = "record type support")]
 		public void Issue3357_RecordClass([CteContextSource] string context)
 		{
@@ -1337,6 +1354,7 @@ namespace Tests.Linq
 			query.ToArray();
 		}
 
+		[ActiveIssue(3357)]
 		[Test(Description = "record type support")]
 		public void Issue3357_RecordStruct([CteContextSource] string context)
 		{
@@ -1355,6 +1373,7 @@ namespace Tests.Linq
 			query.ToArray();
 		}
 
+		[ActiveIssue(3357)]
 		[Test(Description = "record type support")]
 		public void Issue3357_RecordLikeClass([CteContextSource] string context)
 		{
@@ -1368,6 +1387,61 @@ namespace Tests.Linq
 					join r in db.Person on p.FirstName equals r.LastName
 					select new Issue3357RecordLike(r.FirstName, r.LastName)
 					);
+			});
+
+			query.ToArray();
+		}
+
+		class CteEntity<TEntity> where TEntity : class
+		{
+			public TEntity Entity   { get; set; } = null!;
+			public Guid    Id       { get; set; }
+			public Guid?   ParentId { get; set; }
+			public int     Level    { get; set; }
+			public string? Label    { get; set; }
+		}
+
+		[Table]
+		class TestFolder
+		{
+			[Column] public Guid        Id       { get; set; }
+			[Column] public string?     Label    { get; set; }
+			[Column] public Guid?       ParentId { get; set; }
+
+			[Association(ThisKey = nameof(ParentId), OtherKey = nameof(Id))]
+			public TestFolder? Parent { get; set; }
+		}
+
+		[ActiveIssue(2264)]
+		[Test(Description = "Recursive common table expression 'CTE' does not contain a top-level UNION ALL operator.")]
+		public void Issue2264([CteContextSource] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<TestFolder>();
+
+			var query = db.GetCte<CteEntity<TestFolder>>("CTE", cte =>
+			{
+				return (tb
+					.Where(c => c.ParentId == null)
+					.Select(c =>
+						new CteEntity<TestFolder>()
+						{
+							Level     = 0,
+							Id        = c.Id,
+							ParentId  = c.ParentId,
+							Label     = c.Label,
+							Entity    = c
+						}))
+				.Concat(tb
+					.SelectMany(c => cte.InnerJoin(r => c.ParentId == r.Id),
+						(c, r)    => new CteEntity<TestFolder>
+						{
+							Level    = r.Level + 1,
+							Id       = c.Id,
+							ParentId = c.ParentId,
+							Label    = r.Label + '/' + c.Label,
+							Entity   = c
+						}));
 			});
 
 			query.ToArray();

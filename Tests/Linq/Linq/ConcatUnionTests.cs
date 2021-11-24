@@ -1057,6 +1057,73 @@ namespace Tests.Linq
 			db.LastQuery!.Should().Contain("SELECT", Exactly.Thrice());
 		}
 
+		[Test(Description = "Test that we generate plain UNION without sub-queries")]
+		public void Issue3359_MultipleSetsCombined([DataSources(false)] string context)
+		{
+			using var db = (TestDataConnection)GetDataContext(context);
+
+			var query1 = db.Person.Select(p => new { p.FirstName, p.LastName });
+			var query2 = db.Person.Select(p => new { p.FirstName, p.LastName });
+			var query3 = db.Person.Select(p => new { p.FirstName, p.LastName });
+			var query4 = db.Person.Select(p => new { p.FirstName, p.LastName });
+			var query5 = db.Person.Select(p => new { p.FirstName, p.LastName });
+			var query6 = db.Person.Select(p => new { p.FirstName, p.LastName });
+
+			query1.Concat(query2.Concat(query3)).Concat(query4.Concat(query5).Concat(query6)).ToArray();
+
+			db.LastQuery!.Should().Contain("SELECT", Exactly.Times(6));
+		}
+
+		[Test(Description = "Test that we generate plain UNION without sub-queries")]
+		public void Issue3359_MultipleSetsCombined_DifferentOperators([IncludeDataSources(TestProvName.AllPostgreSQL)] string context)
+		{
+			using var db = (TestDataConnection)GetDataContext(context);
+
+			var query1 = db.Person.Select(p => new { FirstName = p.FirstName + "q1", p.LastName });
+			var query2 = db.Person.Select(p => new { FirstName = p.FirstName + "q2", p.LastName });
+			var query3 = db.Person.Select(p => new { FirstName = p.FirstName + "q3", p.LastName });
+			var query4 = db.Person.Select(p => new { FirstName = p.FirstName + "q4", p.LastName });
+			var query5 = db.Person.Select(p => new { FirstName = p.FirstName + "q5", p.LastName });
+			var query6 = db.Person.Select(p => new { FirstName = p.FirstName + "q6", p.LastName });
+
+			query1.Union(query2.UnionAll(query3)).Intersect(query4.IntersectAll(query5).Except(query6)).ToArray();
+
+			var sql = db.LastQuery!;
+			// no subqueries
+			sql.Should().Contain("SELECT", Exactly.Times(6));
+
+			// operators generated
+			sql.Should().Contain("UNION ALL", Exactly.Once());
+			sql.Should().Contain("UNION\r", Exactly.Once());
+			sql.Should().Contain("INTERSECT\r", Exactly.Once());
+			sql.Should().Contain("INTERSECT ALL", Exactly.Once());
+			sql.Should().Contain("EXCEPT", Exactly.Once());
+
+			// operators order correct
+			var i1 = sql.IndexOf("UNION\r");
+			var i2 = sql.IndexOf("UNION ALL");
+			var i3 = sql.IndexOf("INTERSECT\r");
+			var i4 = sql.IndexOf("INTERSECT ALL");
+			var i5 = sql.IndexOf("EXCEPT");
+			Assert.AreNotEqual(-1, i1);
+			Assert.Less(i1, i2);
+			Assert.Less(i2, i3);
+			Assert.Less(i3, i4);
+			Assert.Less(i4, i5);
+
+			// queries order correct
+			i1 = sql.IndexOf("q1");
+			i2 = sql.IndexOf("q2");
+			i3 = sql.IndexOf("q3");
+			i4 = sql.IndexOf("q4");
+			i5 = sql.IndexOf("q5");
+			Assert.AreNotEqual(-1, i1);
+			Assert.Less(i1, i2);
+			Assert.Less(i2, i3);
+			Assert.Less(i3, i4);
+			Assert.Less(i4, i5);
+		}
+
 		[Table]
 		private class Issue3360Table
 		{
@@ -1065,6 +1132,7 @@ namespace Tests.Linq
 			[Column(DataType = DataType.VarChar)] public string? Str { get; set; }
 		}
 
+		[ActiveIssue(3360)]
 		[Test(Description = "Test that we type literal/parameter in set query column properly")]
 		public void Issue3360_TypeByOtherQuery(
 			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
@@ -1109,6 +1177,7 @@ namespace Tests.Linq
 				dc2.LastQuery!.Should().NotContain("N'");
 		}
 
+		[ActiveIssue(2451)]
 		[Test(Description = "Test that we type non-field union column properly")]
 		public void Issue2451_ComplexColumn(
 			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
@@ -1148,6 +1217,7 @@ namespace Tests.Linq
 			public string LastName  { get; }
 		}
 
+		[ActiveIssue(3357)]
 		[Test(Description = "record type support")]
 		public void Issue3357_RecordClass([DataSources] string context)
 		{
@@ -1159,6 +1229,7 @@ namespace Tests.Linq
 			query1.Concat(query2).ToArray();
 		}
 
+		[ActiveIssue(3357)]
 		[Test(Description = "record type support")]
 		public void Issue3357_RecordStruct([DataSources] string context)
 		{
@@ -1170,6 +1241,7 @@ namespace Tests.Linq
 			query1.Concat(query2).ToArray();
 		}
 
+		[ActiveIssue(3357)]
 		[Test(Description = "record type support")]
 		public void Issue3357_RecordLikeClass([DataSources] string context)
 		{
@@ -1196,6 +1268,7 @@ namespace Tests.Linq
 			public string? LastName  { get; set; }
 		}
 
+		[ActiveIssue(3346)]
 		[Test(Description = "composite columns in union (also tests create table)")]
 		public void Issue3346_ProjectionBuild([DataSources] string context)
 		{
@@ -1213,6 +1286,7 @@ namespace Tests.Linq
 			query1.Union(query2).ToArray();
 		}
 
+		[ActiveIssue(3346)]
 		[Test(Description = "composite columns in union (also tests create table)")]
 		public void Issue3346_Count([DataSources] string context)
 		{
@@ -1244,15 +1318,27 @@ namespace Tests.Linq
 			private static Expression<Func<Issue3323Table, string>> FullNameExpr() => entity => entity.FistName + " " + entity.LastName;
 		}
 
+		[ActiveIssue(3323)]
 		[Test(Description = "calculated column in set select")]
 		public void Issue3323([DataSources] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3323Table>();
+			tb.Insert(() => new Issue3323Table()
+			{
+				Id       = 1,
+				FistName = "one",
+				LastName = "two",
+			});
 
-			tb.Concat(tb).ToArray();
+			var res = tb.Concat(tb).ToArray();
+
+			Assert.AreEqual(2, res.Length);
+			Assert.AreEqual("one two", res[0].FullName);
+			Assert.AreEqual("one two", res[1].FullName);
 		}
 
+		[ActiveIssue(3150)]
 		[Test(Description = "preserve constant columns")]
 		public void Issue3150([DataSources] string context)
 		{
@@ -1280,6 +1366,7 @@ namespace Tests.Linq
 			public T    Model { get; set; } = default!;
 		}
 
+		[ActiveIssue(2948)]
 		[Test(Description = "InvalidCastException : Unable to cast object of type 'System.Linq.Expressions.MemberMemberBinding' to type 'System.Linq.Expressions.MemberAssignment'.")]
 		public void Issue2948([IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context)
 		{
@@ -1299,6 +1386,7 @@ namespace Tests.Linq
 			var res = first.Concat(second).Concat(third).ToList();
 		}
 
+		[ActiveIssue(2932)]
 		[Test(Description = "invalid SQL for Any() subquery")]
 		public void Issue2932_Broken([DataSources] string context)
 		{
@@ -1319,6 +1407,7 @@ namespace Tests.Linq
 			query.Concat(query).ToArray();
 		}
 
+		[ActiveIssue(2505)]
 		[Test(Description = "NullReferenceException : Object reference not set to an instance of an object.")]
 		public void Issue2505([DataSources] string context)
 		{
@@ -1354,6 +1443,7 @@ namespace Tests.Linq
 				.ToList();
 		}
 
+		[ActiveIssue(2619)]
 		[Test(Description = "set query with ORDER BY requires wrapping into subquery for some DBs")]
 		public void Issue2619_Query1([DataSources] string context)
 		{
@@ -1365,6 +1455,7 @@ namespace Tests.Linq
 				.ToList();
 		}
 
+		[ActiveIssue(2619)]
 		[Test(Description = "set query with ORDER BY requires wrapping into subquery for some DBs")]
 		public void Issue2619_Query2([DataSources] string context)
 		{
@@ -1376,14 +1467,25 @@ namespace Tests.Linq
 				.ToList();
 		}
 
+		[ActiveIssue(2511)]
 		[Test(Description = "ArgumentOutOfRangeException : Index was out of range. Must be non-negative and less than the size of the collection.")]
 		public void Issue2511_Query1([DataSources] string context)
 		{
 			using var db = GetDataContext(context);
 
-			db.Person.LoadWith(p => p.Patient).Concat(db.Person.LoadWith(p => p.Patient).Take(2)).ToArray();
+			var res = db.Person.LoadWith(p => p.Patient).Concat(db.Person.LoadWith(p => p.Patient).Take(2)).ToArray();
+			
+			Assert.AreEqual(6, res.Length);
+			Assert.AreEqual(2, res.Where(r => r.ID == 2).Count());
+			var pat = res.Where(r => r.ID == 2).First();
+			Assert.IsNotNull(pat.Patient);
+			Assert.AreEqual("Hallucination with Paranoid Bugs' Delirium of Persecution", pat.Patient!.Diagnosis);
+			pat = res.Where(r => r.ID == 2).Skip(1).First();
+			Assert.IsNotNull(pat.Patient);
+			Assert.AreEqual("Hallucination with Paranoid Bugs' Delirium of Persecution", pat.Patient!.Diagnosis);
 		}
 
+		[ActiveIssue(2511)]
 		[Test(Description = "Associations with Concat/Union or other Set operations are not supported")]
 		public void Issue2511_Query2([DataSources] string context)
 		{
@@ -1402,12 +1504,13 @@ namespace Tests.Linq
 				.ToArray();
 		}
 
+		[ActiveIssue(2511)]
 		[Test(Description = "Working version of Issue2511_Query2")]
 		public void Issue2511_Query3([DataSources] string context)
 		{
 			using var db = GetDataContext(context);
 
-			db.Person.LoadWith(p => p.Patient)
+			var res = db.Person.LoadWith(p => p.Patient)
 				.Select(p => new Person()
 				{
 					FirstName  = p.FirstName,
@@ -1417,6 +1520,13 @@ namespace Tests.Linq
 				}).Take(2)
 				.Concat(db.Person.LoadWith(p => p.Patient))
 				.ToArray();
+
+			Assert.AreEqual(6, res.Length);
+			var pat = res.Where(r => r.ID == 2).Single();
+			Assert.IsNull(pat.Patient);
+			pat = res.Where(r => r.ID == 2).Skip(1).Single();
+			Assert.IsNotNull(pat.Patient);
+			Assert.AreEqual("Hallucination with Paranoid Bugs' Delirium of Persecution", pat.Patient!.Diagnosis);
 		}
 	}
 }

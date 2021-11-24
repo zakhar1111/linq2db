@@ -1259,6 +1259,7 @@ namespace Tests.Linq
 
 		#endregion
 
+		[ActiveIssue(2966)]
 		[Test(Description = "association over set query")]
 		public void Issue2966([DataSources] string context)
 		{

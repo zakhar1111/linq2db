@@ -357,12 +357,12 @@ namespace LinqToDB.SqlQuery
 
 		void OptimizeUnions()
 		{
-			var isAllUnion = _selectQuery.Find(static ne => ne is SqlSetOperator nu && nu.Operation == SetOperation.UnionAll);
+			//var isAllUnion = _selectQuery.Find(static ne => ne is SqlSetOperator nu && nu.Operation == SetOperation.UnionAll);
 
-			var isNotAllUnion = _selectQuery.Find(static ne => ne is SqlSetOperator nu && nu.Operation != SetOperation.UnionAll);
+			//var isNotAllUnion = _selectQuery.Find(static ne => ne is SqlSetOperator nu && nu.Operation != SetOperation.UnionAll);
 
-			if (isNotAllUnion != null && isAllUnion != null)
-				return;
+			//if (isNotAllUnion != null && isAllUnion != null)
+			//	return;
 
 			var exprs = new Dictionary<ISqlExpression,ISqlExpression>();
 

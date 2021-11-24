@@ -31,22 +31,22 @@ namespace LinqToDB.Linq.Builder
 			SetOperation setOperation;
 			switch (methodCall.Method.Name)
 			{
-				case "Concat"       : 
-				case "UnionAll"     : setOperation = SetOperation.UnionAll;     break;
-				case "Union"        : setOperation = SetOperation.Union;        break;
-				case "Except"       : setOperation = SetOperation.Except;       break;
-				case "ExceptAll"    : setOperation = SetOperation.ExceptAll;    break;
-				case "Intersect"    : setOperation = SetOperation.Intersect;    break;
-				case "IntersectAll" : setOperation = SetOperation.IntersectAll; break;
+				case "Concat":
+				case "UnionAll": setOperation = SetOperation.UnionAll; break;
+				case "Union": setOperation = SetOperation.Union; break;
+				case "Except": setOperation = SetOperation.Except; break;
+				case "ExceptAll": setOperation = SetOperation.ExceptAll; break;
+				case "Intersect": setOperation = SetOperation.Intersect; break;
+				case "IntersectAll": setOperation = SetOperation.IntersectAll; break;
 				default:
 					throw new ArgumentException($"Invalid method name {methodCall.Method.Name}.");
 			}
 
 			var needsEmulation = !builder.DataContext.SqlProviderFlags.IsAllSetOperationsSupported &&
-			                     (setOperation == SetOperation.ExceptAll || setOperation == SetOperation.IntersectAll)
-			                     ||
-			                     !builder.DataContext.SqlProviderFlags.IsDistinctSetOperationsSupported &&
-			                     (setOperation == SetOperation.Except || setOperation == SetOperation.Intersect);
+								 (setOperation == SetOperation.ExceptAll || setOperation == SetOperation.IntersectAll)
+								 ||
+								 !builder.DataContext.SqlProviderFlags.IsDistinctSetOperationsSupported &&
+								 (setOperation == SetOperation.Except || setOperation == SetOperation.Intersect);
 
 			if (needsEmulation)
 			{
@@ -86,18 +86,43 @@ namespace LinqToDB.Linq.Builder
 			}
 
 
-			var set  = sequence1 as SetOperationContext;
-			var set1 = set ?? new SubQueryContext(sequence1);
-			var set2 = new SubQueryContext(sequence2);
+			var set1  = sequence1 as SetOperationContext;
+			var set2  = sequence2 as SetOperationContext;
 
-			var setOperator = new SqlSetOperator(set2.SelectQuery, setOperation);
-
-			if (set != null)
-				set.AddSequence(set2, setOperator);
+			if (set1 != null)
+			{
+				if (set2 == null)
+				{
+					var seq2        = new SubQueryContext(sequence2);
+					var setOperator = new SqlSetOperator(seq2.SelectQuery, setOperation);
+					set1.AddSequence(seq2, setOperator);
+				}
+				else
+				{
+					set1.AddSequence(set2.Sequences[0], new SqlSetOperator(set2.Sequences[0].SelectQuery, setOperation));
+					for (var i = 1; i < set2.Sequences.Count; i++)
+						set1.AddSequence(set2.Sequences[i], set2.Sequences[0].SelectQuery.SetOperators[i - 1]);
+					set2.Sequences[0].SelectQuery.SetOperators.Clear();
+				}
+			}
 			else
-				set = new SetOperationContext(set1, set2, methodCall, setOperator);
+			{
+				var seq1 = new SubQueryContext(sequence1);
+				if (set2 == null)
+				{
+					var seq2 = new SubQueryContext(sequence2);
+					set1     = new SetOperationContext(seq1, seq2, methodCall, new SqlSetOperator(seq2.SelectQuery, setOperation));
+				}
+				else
+				{
+					set1 = new SetOperationContext(seq1, set2.Sequences[0], methodCall, new SqlSetOperator(set2.Sequences[0].SelectQuery, setOperation));
+					for (var i = 1; i < set2.Sequences.Count; i++)
+						set1.AddSequence(set2.Sequences[i], set2.Sequences[0].SelectQuery.SetOperators[i - 1]);
+					set2.Sequences[0].SelectQuery.SetOperators.Clear();
+				}
+			}
 
-			return set;
+			return set1;
 		}
 
 		protected override SequenceConvertInfo? Convert(
@@ -134,8 +159,9 @@ namespace LinqToDB.Linq.Builder
 			readonly bool                          _isObject;
 			readonly ParameterExpression?          _unionParameter;
 			readonly Dictionary<MemberInfo,Member> _members   = new(new MemberInfoComparer());
-			readonly List<SubQueryContext>         _sequences = new ();
 			         List<UnionMember>?            _unionMembers;
+
+			public readonly List<SubQueryContext>  Sequences = new ();
 
 			[DebuggerDisplay("{Member.MemberExpression}, SequenceInfo: ({SequenceInfo}), SqlQueryInfo: ({SqlQueryInfo})")]
 			class Member
@@ -161,15 +187,15 @@ namespace LinqToDB.Linq.Builder
 
 			public void AddSequence(SubQueryContext sequence, SqlSetOperator? setOperator)
 			{
-				var isFirst = _sequences.Count == 0;
-				_sequences.Add(sequence);
+				var isFirst = Sequences.Count == 0;
+				Sequences.Add(sequence);
 
 				// no need to set "sequence1.Parent = this" for first sequence?
 				if (!isFirst)
 					sequence.Parent = this;
 
 				if (setOperator != null)
-					_sequences[0].SelectQuery.SetOperators.Add(setOperator);
+					Sequences[0].SelectQuery.SetOperators.Add(setOperator);
 
 				var infos = sequence.ConvertToIndex(null, 0, ConvertFlags.All);
 
@@ -203,7 +229,7 @@ namespace LinqToDB.Linq.Builder
 						foreach (var m in _unionMembers!)
 						{
 							if (m.Member.SequenceInfo != null &&
-								m.Infos.Count < _sequences.Count &&
+								m.Infos.Count < Sequences.Count &&
 								m.Member.SequenceInfo.CompareMembers(info))
 							{
 								em = m;
@@ -216,7 +242,7 @@ namespace LinqToDB.Linq.Builder
 							foreach (var m in _unionMembers!)
 							{
 								if (m.Member.SequenceInfo != null &&
-									m.Infos.Count < _sequences.Count &&
+									m.Infos.Count < Sequences.Count &&
 									m.Member.SequenceInfo.CompareLastMember(info))
 								{
 									em = m;
@@ -233,20 +259,20 @@ namespace LinqToDB.Linq.Builder
 								throw new LinqException("Types in UNION are constructed incompatibly.");
 
 							_unionMembers.Add(em = new UnionMember(member, info));
-							if (em.Infos.Count < _sequences.Count)
+							if (em.Infos.Count < Sequences.Count)
 							{
 								var dbType = QueryHelper.GetDbDataType(info.Sql);
 								if (dbType.SystemType == typeof(object))
 									dbType = dbType.WithSystemType(info.MemberChain.Last().GetMemberType());
 
-								while (em.Infos.Count < _sequences.Count)
+								while (em.Infos.Count < Sequences.Count)
 								{
-									var idx = _sequences.Count - em.Infos.Count - 1;
+									var idx = Sequences.Count - em.Infos.Count - 1;
 
 									var newInfo = new SqlInfo(
 										info.MemberChain,
 										new SqlValue(dbType, null),
-										_sequences[idx].SelectQuery,
+										Sequences[idx].SelectQuery,
 										_unionMembers.Count - 1);
 
 									em.Infos.Insert(0, newInfo);
@@ -264,7 +290,7 @@ namespace LinqToDB.Linq.Builder
 				}
 
 				// currently re-run for each sequence > 2...
-				if (_sequences.Count > 1)
+				if (Sequences.Count > 1)
 					FinalizeAliases();
 			}
 
@@ -290,7 +316,7 @@ namespace LinqToDB.Linq.Builder
 						member.Alias = GetFullAlias(member);
 
 				var idx = 0;
-				foreach (var sequence in _sequences)
+				foreach (var sequence in Sequences)
 				{
 					sequence.SelectQuery.Select.Columns.Clear();
 					sequence.ColumnIndexes.Clear();
@@ -379,12 +405,12 @@ namespace LinqToDB.Linq.Builder
 						}
 
 						var findVisitor  = FindVisitor<Type>.Create(type, static (type, e) => e.NodeType == ExpressionType.MemberInit && e.Type == type);
-						var news         = new MemberInitExpression?[_sequences.Count];
+						var news         = new MemberInitExpression?[Sequences.Count];
 						var needsRewrite = false;
 
-						for (var i = 0; i < _sequences.Count; i++)
+						for (var i = 0; i < Sequences.Count; i++)
 						{
-							news[i] = (MemberInitExpression?)findVisitor.Find(_sequences[i].Expression);
+							news[i] = (MemberInitExpression?)findVisitor.Find(Sequences[i].Expression);
 							if (news[i] == null)
 								needsRewrite = true;
 						}
@@ -469,7 +495,7 @@ namespace LinqToDB.Linq.Builder
 						}
 						else
 						{
-							var ex = _sequences[0].BuildExpression(null, level, enforceServerSide);
+							var ex = Sequences[0].BuildExpression(null, level, enforceServerSide);
 							return ex;
 						}
 					}
@@ -493,7 +519,7 @@ namespace LinqToDB.Linq.Builder
 
 				var testExpression = expression?.GetLevelExpression(Builder.MappingSchema, level);
 
-				foreach (var sequence in _sequences)
+				foreach (var sequence in Sequences)
 				{
 					if (sequence.IsExpression(testExpression, level, RequestFor.Association).Result)
 					{
@@ -502,7 +528,7 @@ namespace LinqToDB.Linq.Builder
 					}
 				}
 
-				var ret   = _sequences[0].BuildExpression(expression, level, enforceServerSide);
+				var ret   = Sequences[0].BuildExpression(expression, level, enforceServerSide);
 
 				//if (level == 1)
 				//	_sequence2.BuildExpression(expression, level);
