@@ -357,18 +357,25 @@ namespace LinqToDB.SqlQuery
 
 		void OptimizeUnions()
 		{
-			//var isAllUnion = _selectQuery.Find(static ne => ne is SqlSetOperator nu && nu.Operation == SetOperation.UnionAll);
+			if (null == _selectQuery.Find(QueryElementType.SetOperator))
+				return;
 
-			//var isNotAllUnion = _selectQuery.Find(static ne => ne is SqlSetOperator nu && nu.Operation != SetOperation.UnionAll);
-
-			//if (isNotAllUnion != null && isAllUnion != null)
-			//	return;
-
-			var exprs = new Dictionary<ISqlExpression,ISqlExpression>();
-
-			_selectQuery.Visit(exprs, static (exprs, e) =>
+			var parentSetType = new Dictionary<ISqlExpression, SetOperation>();
+			_selectQuery.Visit(parentSetType, static (parentSetType, e) =>
 			{
-				if (!(e is SelectQuery sql) || sql.From.Tables.Count != 1 || !sql.IsSimple)
+				if (e is SelectQuery sql && sql.HasSetOperators)
+				{
+					parentSetType.Add(sql.From.Tables[0].Source, sql.SetOperators[0].Operation);
+					foreach (var set in sql.SetOperators)
+						parentSetType.Add(set.SelectQuery, sql.SetOperators[0].Operation);
+				}
+			});
+
+			var exprs = new Dictionary<ISqlExpression, ISqlExpression>();
+
+			_selectQuery.Visit((exprs, parentSetType), static (ctx, e) =>
+			{
+				if (!(e is SelectQuery sql) || sql.From.Tables.Count != 1 || !sql.IsSimpleOrSet)
 					return;
 
 				var table = sql.From.Tables[0];
@@ -381,6 +388,10 @@ namespace LinqToDB.SqlQuery
 				if (!union.HasSetOperators || sql.Select.Columns.Count != union.Select.Columns.Count)
 					return;
 
+				var operation = union.SetOperators[0].Operation;
+				if (ctx.parentSetType.TryGetValue(sql, out var parentOp) && parentOp != operation)
+					return;
+
 				for (var i = 0; i < sql.Select.Columns.Count; i++)
 				{
 					var scol = sql.  Select.Columns[i];
@@ -390,7 +401,7 @@ namespace LinqToDB.SqlQuery
 						return;
 				}
 
-				exprs.Add(union, sql);
+				ctx.exprs.Add(union, sql);
 
 				for (var i = 0; i < sql.Select.Columns.Count; i++)
 				{
@@ -400,8 +411,8 @@ namespace LinqToDB.SqlQuery
 					scol.Expression = ucol.Expression;
 					scol.RawAlias   = ucol.RawAlias;
 
-					if (!exprs.ContainsKey(ucol))
-						exprs.Add(ucol, scol);
+					if (!ctx.exprs.ContainsKey(ucol))
+						ctx.exprs.Add(ucol, scol);
 				}
 
 				for (var i = sql.Select.Columns.Count; i < union.Select.Columns.Count; i++)

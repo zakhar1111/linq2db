@@ -1074,7 +1074,8 @@ namespace Tests.Linq
 			db.LastQuery!.Should().Contain("SELECT", Exactly.Times(6));
 		}
 
-		[Test(Description = "Test that we generate plain UNION without sub-queries")]
+		// only pgsql supports all 6 operators right now
+		[Test(Description = "Test that we generate sub-queries for incompatible set operators and order queries properly")]
 		public void Issue3359_MultipleSetsCombined_DifferentOperators([IncludeDataSources(TestProvName.AllPostgreSQL)] string context)
 		{
 			using var db = (TestDataConnection)GetDataContext(context);
@@ -1089,20 +1090,20 @@ namespace Tests.Linq
 			query1.Union(query2.UnionAll(query3)).Intersect(query4.IntersectAll(query5).Except(query6)).ToArray();
 
 			var sql = db.LastQuery!;
-			// no subqueries
-			sql.Should().Contain("SELECT", Exactly.Times(6));
+			// 6 main queries and 4 subqueries for incompatible operators
+			sql.Should().Contain("SELECT", Exactly.Times(6 + 4));
 
 			// operators generated
 			sql.Should().Contain("UNION ALL", Exactly.Once());
-			sql.Should().Contain("UNION\r", Exactly.Once());
-			sql.Should().Contain("INTERSECT\r", Exactly.Once());
+			sql.Should().Contain("UNION", Exactly.Twice());
+			sql.Should().Contain("INTERSECT", Exactly.Twice());
 			sql.Should().Contain("INTERSECT ALL", Exactly.Once());
 			sql.Should().Contain("EXCEPT", Exactly.Once());
 
 			// operators order correct
-			var i1 = sql.IndexOf("UNION\r");
+			var i1 = sql.IndexOf("UNION");
 			var i2 = sql.IndexOf("UNION ALL");
-			var i3 = sql.IndexOf("INTERSECT\r");
+			var i3 = sql.IndexOf("INTERSECT");
 			var i4 = sql.IndexOf("INTERSECT ALL");
 			var i5 = sql.IndexOf("EXCEPT");
 			Assert.AreNotEqual(-1, i1);

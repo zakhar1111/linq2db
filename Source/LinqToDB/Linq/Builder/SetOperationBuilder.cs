@@ -89,6 +89,12 @@ namespace LinqToDB.Linq.Builder
 			var set1  = sequence1 as SetOperationContext;
 			var set2  = sequence2 as SetOperationContext;
 
+			// mixing set operators in single query will result in wrong results
+			if (set1 != null && set1.Sequences[0].SelectQuery.SetOperators[0].Operation != setOperation)
+				set1 = null;
+			if (set2 != null && set2.Sequences[0].SelectQuery.SetOperators[0].Operation != setOperation)
+				set2 = null;
+
 			if (set1 != null)
 			{
 				if (set2 == null)
