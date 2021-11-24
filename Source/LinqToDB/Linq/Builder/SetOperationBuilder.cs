@@ -31,14 +31,14 @@ namespace LinqToDB.Linq.Builder
 			SetOperation setOperation;
 			switch (methodCall.Method.Name)
 			{
-				case "Concat":
-				case "UnionAll": setOperation = SetOperation.UnionAll; break;
-				case "Union": setOperation = SetOperation.Union; break;
-				case "Except": setOperation = SetOperation.Except; break;
-				case "ExceptAll": setOperation = SetOperation.ExceptAll; break;
-				case "Intersect": setOperation = SetOperation.Intersect; break;
+				case "Concat"      :
+				case "UnionAll"    : setOperation = SetOperation.UnionAll;     break;
+				case "Union"       : setOperation = SetOperation.Union;        break;
+				case "Except"      : setOperation = SetOperation.Except;       break;
+				case "ExceptAll"   : setOperation = SetOperation.ExceptAll;    break;
+				case "Intersect"   : setOperation = SetOperation.Intersect;    break;
 				case "IntersectAll": setOperation = SetOperation.IntersectAll; break;
-				default:
+				default            :
 					throw new ArgumentException($"Invalid method name {methodCall.Method.Name}.");
 			}
 
@@ -287,6 +287,31 @@ namespace LinqToDB.Linq.Builder
 							em.Infos.Add(info);
 						}
 					}
+				}
+
+				// add nulls for missing columns in current sequence
+				var midx = -1;
+				foreach (var member in _unionMembers!)
+				{
+					midx++;
+					if (member.Infos.Count == Sequences.Count)
+						continue;
+
+					if (sequence.IsExpression(member.Member.MemberExpression, 1, RequestFor.Object).Result)
+						throw new LinqException("Types in UNION are constructed incompatibly.");
+
+					var info = member.Infos[0];
+
+					var dbType = QueryHelper.GetDbDataType(info.Sql);
+					if (dbType.SystemType == typeof(object))
+						dbType = dbType.WithSystemType(info.MemberChain.Last().GetMemberType());
+
+					var newInfo = new SqlInfo(
+						info.MemberChain,
+						new SqlValue(dbType, null),
+						sequence.SelectQuery,
+						midx);
+					member.Infos.Add(newInfo);
 				}
 
 				// currently re-run for each sequence > 2...
