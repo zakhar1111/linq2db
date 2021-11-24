@@ -303,8 +303,8 @@ namespace LinqToDB.Linq.Builder
 					if (member.Infos.Count == Sequences.Count)
 						continue;
 
-					if (sequence.IsExpression(member.Member.MemberExpression, 1, RequestFor.Object).Result)
-						throw new LinqException("Types in UNION are constructed incompatibly.");
+					//if (sequence.IsExpression(member.Member.MemberExpression, 1, RequestFor.Object).Result)
+					//	throw new LinqException("Types in UNION are constructed incompatibly.");
 
 					var info = member.Infos[0];
 

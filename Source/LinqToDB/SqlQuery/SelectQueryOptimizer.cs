@@ -389,6 +389,8 @@ namespace LinqToDB.SqlQuery
 					return;
 
 				var operation = union.SetOperators[0].Operation;
+				if (sql.HasSetOperators && operation != sql.SetOperators[0].Operation)
+					return;
 				if (ctx.parentSetType.TryGetValue(sql, out var parentOp) && parentOp != operation)
 					return;
 

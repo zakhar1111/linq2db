@@ -1158,7 +1158,7 @@ namespace Tests.Linq
 
 		[Test(Description = "Test that we type literal/parameter in set query column properly")]
 		public void Issue3360_TypeByProjectionProperty(
-			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
+			[IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context,
 			[Values] bool inline)
 		{
 			using var db = GetDataContext(context);
