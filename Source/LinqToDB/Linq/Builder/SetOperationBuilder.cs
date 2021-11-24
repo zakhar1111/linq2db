@@ -438,12 +438,15 @@ namespace LinqToDB.Linq.Builder
 						var findVisitor  = FindVisitor<Type>.Create(type, static (type, e) => e.NodeType == ExpressionType.MemberInit && e.Type == type);
 						var news         = new MemberInitExpression?[Sequences.Count];
 						var needsRewrite = false;
+						var hasValue     = false;
 
 						for (var i = 0; i < Sequences.Count; i++)
 						{
 							news[i] = (MemberInitExpression?)findVisitor.Find(Sequences[i].Expression);
 							if (news[i] == null)
 								needsRewrite = true;
+							else
+								hasValue = true;
 						}
 
 						if (!needsRewrite)
@@ -512,6 +515,8 @@ namespace LinqToDB.Linq.Builder
 								}
 							}
 						}
+						else
+							needsRewrite = hasValue;
 
 						if (needsRewrite)
 						{
