@@ -1001,7 +1001,7 @@ namespace LinqToDB.SqlQuery
 			return true;
 		}
 
-		bool CheckColumn(SelectQuery parentQuery, SqlColumn column, ISqlExpression expr, SelectQuery query, bool optimizeValues)
+		bool CheckColumn(SelectQuery parentQuery, SqlColumn column, ISqlExpression expr, SelectQuery query, bool optimizeValues, ISet<ISqlTableSource> sources)
 		{
 			expr = QueryHelper.UnwrapExpression(expr);
 
@@ -1019,11 +1019,11 @@ namespace LinqToDB.SqlQuery
 				if (e1.Operation == "*" && e1.Expr1 is SqlValue value)
 				{
 					if (value.Value is int i && i == -1)
-						return CheckColumn(parentQuery, column, e1.Expr2, query, optimizeValues);
+						return CheckColumn(parentQuery, column, e1.Expr2, query, optimizeValues, sources);
 				}
 			}
 
-			if (expr.Find(static ex => ex is SelectQuery || QueryHelper.IsAggregationOrWindowFunction(ex)) == null)
+			if (!QueryHelper.ContainsAggregationOrWindowFunction(expr))
 			{
 				var elementsToIgnore = new HashSet<IQueryElement> { query };
 
@@ -1033,7 +1033,7 @@ namespace LinqToDB.SqlQuery
 
 				if (!_flags.AcceptsOuterExpressionInAggregate && 
 				    column.Expression.ElementType != QueryElementType.Column &&
-				    QueryHelper.HasOuterReferences(parentQuery, column))
+				    QueryHelper.HasOuterReferences(sources, column))
 				{
 					// handle case when aggregate expression has outer references. SQL Server will fail.
 					return true;
@@ -1102,9 +1102,17 @@ namespace LinqToDB.SqlQuery
 			if (!isColumnsOK)
 			{
 				isColumnsOK = true;
+
+				var sources = new HashSet<ISqlTableSource>();
+				query.Visit(sources, static (sources, e) =>
+				{
+					if (e is ISqlTableSource src)
+						sources.Add(src);
+				});
+
 				foreach (var column in query.Select.Columns)
 				{
-					if (CheckColumn(parentQuery, column, column.Expression, query, optimizeValues))
+					if (CheckColumn(parentQuery, column, column.Expression, query, optimizeValues, sources))
 					{
 						isColumnsOK = false;
 						break;
@@ -1449,67 +1457,6 @@ namespace LinqToDB.SqlQuery
 					_selectQuery.From.Tables[i] = table;
 				}
 			}
-
-			// Move up simple subqueries
-			//
-			// Informix doesn't support group by over expression and we need to generate GROUP BY over subquery with
-			// expression evaluation in it's columns
-			// For now we don't check what kind of expression used for simplicity
-			// Covering tests: UnionGroupByTest1, UnionGroupByTest2
-			if (!_flags.IsGroupBySupportsColumnOnly || _selectQuery.GroupBy.IsEmpty)
-			{
-				for (int tableIndex = 0; tableIndex < _selectQuery.From.Tables.Count; tableIndex++)
-				{
-					var table = _selectQuery.From.Tables[tableIndex];
-					if (table.Source is SelectQuery subQuery && subQuery.IsSimple)
-					{
-						// cartesian cannot be combined with explicit joins in Access
-						if (((subQuery.From.Tables.Count > 1 && table.Joins.Count > 0)
-							|| (subQuery.From.Tables.Count == 1 && subQuery.From.Tables[0].Joins.Count > 0 && _selectQuery.From.Tables.Count > 0))
-							&& !_flags.IsCrossJoinSupported
-							&& !_flags.IsInnerJoinAsCrossSupported)
-						{
-							continue;
-						}
-
-						if (subQuery.Select.Columns.Any(static c => QueryHelper.ContainsAggregationOrWindowFunction(c.Expression)))
-						{
-							continue;
-						}
-
-						if (!_selectQuery.GroupBy.IsEmpty)
-						{
-							if (!_flags.IsGroupBySupportsExpressions
-								&& subQuery.Select.Columns.Any(static c => null != c.Expression.Find(static e => e.ElementType == QueryElementType.SqlFunction || e.ElementType == QueryElementType.SqlQuery || e.ElementType == QueryElementType.SqlBinaryExpression)))
-							{
-								continue;
-							}
-						}
-
-						_selectQuery.From.Tables.RemoveAt(tableIndex);
-						_selectQuery.From.Tables.InsertRange(tableIndex, subQuery.Select.From.Tables);
-
-						if (table.Joins.Count > 0)
-						{
-							subQuery.Select.From.Tables.Last().Joins.AddRange(table.Joins);
-						}
-
-						var root = _selectQuery.ParentSelect ?? _selectQuery;
-
-						root.Walk(WalkOptions.Default, subQuery, static (subQuery, e) =>
-						{
-							if (e is SqlColumn column && column.Parent == subQuery)
-							{
-								return column.Expression;
-							}
-
-							return e;
-						});
-
-					}
-				}
-			}
-
 
 			//TODO: Failed SelectQueryTests.JoinScalarTest
 			//Needs optimization refactor for 3.X

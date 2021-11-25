@@ -25,15 +25,6 @@ namespace LinqToDB.SqlProvider
 		public bool        IsApplyJoinSupported               { get; set; }
 		public bool        IsInsertOrUpdateSupported          { get; set; }
 		public bool        CanCombineParameters               { get; set; }
-		/// <summary>
-		/// When <c>false</c>, GROUP BY cannot contain some non-trivial expressions.
-		/// Currently we check for: sub-queries, functions, binary operations.
-		/// </summary>
-		public bool        IsGroupBySupportsExpressions       { get; set; }
-		/// <summary>
-		/// When <c>true</c>GROUP BY expression could contain only single column, no functions, constants or other expressions.
-		/// </summary>
-		public bool        IsGroupBySupportsColumnOnly        { get; set; }
 		public int         MaxInListValuesCount               { get; set; }
 		public bool        IsUpdateSetTableAliasSupported     { get; set; }
 		public TakeHints?  TakeHintsSupported                 { get; set; }
@@ -173,8 +164,6 @@ namespace LinqToDB.SqlProvider
 				^ IsApplyJoinSupported                         .GetHashCode()
 				^ IsInsertOrUpdateSupported                    .GetHashCode()
 				^ CanCombineParameters                         .GetHashCode()
-				^ IsGroupBySupportsExpressions                 .GetHashCode()
-				^ IsGroupBySupportsColumnOnly                  .GetHashCode()
 				^ MaxInListValuesCount                         .GetHashCode()
 				^ IsUpdateSetTableAliasSupported               .GetHashCode()
 				^ (TakeHintsSupported?                         .GetHashCode() ?? 0)
@@ -211,8 +200,6 @@ namespace LinqToDB.SqlProvider
 				&& IsApplyJoinSupported                 == other.IsApplyJoinSupported
 				&& IsInsertOrUpdateSupported            == other.IsInsertOrUpdateSupported
 				&& CanCombineParameters                 == other.CanCombineParameters
-				&& IsGroupBySupportsExpressions         == other.IsGroupBySupportsExpressions
-				&& IsGroupBySupportsColumnOnly          == other.IsGroupBySupportsColumnOnly
 				&& MaxInListValuesCount                 == other.MaxInListValuesCount
 				&& IsUpdateSetTableAliasSupported       == other.IsUpdateSetTableAliasSupported
 				&& TakeHintsSupported                   == other.TakeHintsSupported
