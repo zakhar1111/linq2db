@@ -26,13 +26,10 @@ namespace LinqToDB.SqlProvider
 		public bool        IsInsertOrUpdateSupported          { get; set; }
 		public bool        CanCombineParameters               { get; set; }
 		/// <summary>
-		/// When <c>false</c>, GROUP BY cannot contain functions.
+		/// When <c>false</c>, GROUP BY cannot contain some non-trivial expressions.
+		/// Currently we check for: sub-queries, functions, binary operations.
 		/// </summary>
-		public bool        IsGroupBySupportsFunctions         { get; set; }
-		/// <summary>
-		/// When <c>false</c>, GROUP BY cannot contain sub-queries.
-		/// </summary>
-		public bool        IsGroupBySupportsSubQueries        { get; set; }
+		public bool        IsGroupBySupportsExpressions       { get; set; }
 		/// <summary>
 		/// When <c>true</c>GROUP BY expression could contain only single column, no functions, constants or other expressions.
 		/// </summary>
@@ -176,8 +173,7 @@ namespace LinqToDB.SqlProvider
 				^ IsApplyJoinSupported                         .GetHashCode()
 				^ IsInsertOrUpdateSupported                    .GetHashCode()
 				^ CanCombineParameters                         .GetHashCode()
-				^ IsGroupBySupportsFunctions                   .GetHashCode()
-				^ IsGroupBySupportsSubQueries                  .GetHashCode()
+				^ IsGroupBySupportsExpressions                 .GetHashCode()
 				^ IsGroupBySupportsColumnOnly                  .GetHashCode()
 				^ MaxInListValuesCount                         .GetHashCode()
 				^ IsUpdateSetTableAliasSupported               .GetHashCode()
@@ -215,8 +211,7 @@ namespace LinqToDB.SqlProvider
 				&& IsApplyJoinSupported                 == other.IsApplyJoinSupported
 				&& IsInsertOrUpdateSupported            == other.IsInsertOrUpdateSupported
 				&& CanCombineParameters                 == other.CanCombineParameters
-				&& IsGroupBySupportsFunctions           == other.IsGroupBySupportsFunctions
-				&& IsGroupBySupportsSubQueries          == other.IsGroupBySupportsSubQueries
+				&& IsGroupBySupportsExpressions         == other.IsGroupBySupportsExpressions
 				&& IsGroupBySupportsColumnOnly          == other.IsGroupBySupportsColumnOnly
 				&& MaxInListValuesCount                 == other.MaxInListValuesCount
 				&& IsUpdateSetTableAliasSupported       == other.IsUpdateSetTableAliasSupported

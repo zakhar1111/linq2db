@@ -945,8 +945,8 @@ namespace LinqToDB.SqlQuery
 				return false;
 
 			var joins = select.From.Tables.SelectMany(static _ => _.Joins).Distinct().ToArray();
-			if (joins.Length == 0)
-				return false;
+			//if (joins.Length == 0)
+			//	return false;
 
 			var tables = select.From.Tables.ToArray();
 			foreach (var t in tables)
@@ -967,7 +967,7 @@ namespace LinqToDB.SqlQuery
 				foreach (var j in joins)
 					baseTable.Joins.Add(j);
 			}
-			else
+			else if (joins.Length > 0)
 			{
 				// move to subquery
 				var subQuery = new SelectQuery();
@@ -1479,12 +1479,8 @@ namespace LinqToDB.SqlQuery
 
 						if (!_selectQuery.GroupBy.IsEmpty)
 						{
-							if (!_flags.IsGroupBySupportsFunctions && subQuery.Select.Columns.Any(static c => null != c.Expression.Find(QueryElementType.SqlFunction)))
-							{
-								continue;
-							}
-
-							if (!_flags.IsGroupBySupportsSubQueries && subQuery.Select.Columns.Any(static c => null != c.Expression.Find(QueryElementType.SqlQuery)))
+							if (!_flags.IsGroupBySupportsExpressions
+								&& subQuery.Select.Columns.Any(static c => null != c.Expression.Find(static e => e.ElementType == QueryElementType.SqlFunction || e.ElementType == QueryElementType.SqlQuery || e.ElementType == QueryElementType.SqlBinaryExpression)))
 							{
 								continue;
 							}
