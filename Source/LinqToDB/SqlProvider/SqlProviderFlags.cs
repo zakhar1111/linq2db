@@ -25,7 +25,14 @@ namespace LinqToDB.SqlProvider
 		public bool        IsApplyJoinSupported               { get; set; }
 		public bool        IsInsertOrUpdateSupported          { get; set; }
 		public bool        CanCombineParameters               { get; set; }
-		public bool        IsGroupByExpressionSupported       { get; set; }
+		/// <summary>
+		/// When <c>false</c>, GROUP BY cannot contain functions.
+		/// </summary>
+		public bool        IsGroupBySupportsFunctions         { get; set; }
+		/// <summary>
+		/// When <c>false</c>, GROUP BY cannot contain sub-queries.
+		/// </summary>
+		public bool        IsGroupBySupportsSubQueries        { get; set; }
 		/// <summary>
 		/// When <c>true</c>GROUP BY expression could contain only single column, no functions, constants or other expressions.
 		/// </summary>
@@ -169,7 +176,8 @@ namespace LinqToDB.SqlProvider
 				^ IsApplyJoinSupported                         .GetHashCode()
 				^ IsInsertOrUpdateSupported                    .GetHashCode()
 				^ CanCombineParameters                         .GetHashCode()
-				^ IsGroupByExpressionSupported                 .GetHashCode()
+				^ IsGroupBySupportsFunctions                   .GetHashCode()
+				^ IsGroupBySupportsSubQueries                  .GetHashCode()
 				^ IsGroupBySupportsColumnOnly                  .GetHashCode()
 				^ MaxInListValuesCount                         .GetHashCode()
 				^ IsUpdateSetTableAliasSupported               .GetHashCode()
@@ -207,7 +215,8 @@ namespace LinqToDB.SqlProvider
 				&& IsApplyJoinSupported                 == other.IsApplyJoinSupported
 				&& IsInsertOrUpdateSupported            == other.IsInsertOrUpdateSupported
 				&& CanCombineParameters                 == other.CanCombineParameters
-				&& IsGroupByExpressionSupported         == other.IsGroupByExpressionSupported
+				&& IsGroupBySupportsFunctions           == other.IsGroupBySupportsFunctions
+				&& IsGroupBySupportsSubQueries          == other.IsGroupBySupportsSubQueries
 				&& IsGroupBySupportsColumnOnly          == other.IsGroupBySupportsColumnOnly
 				&& MaxInListValuesCount                 == other.MaxInListValuesCount
 				&& IsUpdateSetTableAliasSupported       == other.IsUpdateSetTableAliasSupported
@@ -227,7 +236,7 @@ namespace LinqToDB.SqlProvider
 				// CustomFlags as List wasn't best idea
 				&& CustomFlags.Count                    == other.CustomFlags.Count
 				&& (CustomFlags.Count                   == 0
-					|| CustomFlags.OrderBy(_ => _).SequenceEqual(other.CustomFlags.OrderBy(_ => _)));
+					|| CustomFlags.OrderBy(_            => _).SequenceEqual(other.CustomFlags.OrderBy(_ => _)));
 		}
 		#endregion
 	}

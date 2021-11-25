@@ -1477,6 +1477,19 @@ namespace LinqToDB.SqlQuery
 							continue;
 						}
 
+						if (!_selectQuery.GroupBy.IsEmpty)
+						{
+							if (!_flags.IsGroupBySupportsFunctions && subQuery.Select.Columns.Any(static c => null != c.Expression.Find(QueryElementType.SqlFunction)))
+							{
+								continue;
+							}
+
+							if (!_flags.IsGroupBySupportsSubQueries && subQuery.Select.Columns.Any(static c => null != c.Expression.Find(QueryElementType.SqlQuery)))
+							{
+								continue;
+							}
+						}
+
 						_selectQuery.From.Tables.RemoveAt(tableIndex);
 						_selectQuery.From.Tables.InsertRange(tableIndex, subQuery.Select.From.Tables);
 
