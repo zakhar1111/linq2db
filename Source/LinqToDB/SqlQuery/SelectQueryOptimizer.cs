@@ -941,7 +941,7 @@ namespace LinqToDB.SqlQuery
 		bool CorrectCrossJoinQuery(SelectQuery query)
 		{
 			var select = query.Select;
-			if (select.From.Tables.Count == 1)
+			if (select.From.Tables.Count < 2)
 				return false;
 
 			var joins = select.From.Tables.SelectMany(static _ => _.Joins).Distinct().ToArray();
