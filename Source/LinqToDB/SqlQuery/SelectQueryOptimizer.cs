@@ -1456,35 +1456,36 @@ namespace LinqToDB.SqlQuery
 
 			// Move up simple subqueries
 			//
-			/* TODO: Cause Stackoverflow in ConcatUnionTests.UnionWithObjects
 			for (int tableIndex = 0; tableIndex < _selectQuery.From.Tables.Count; tableIndex++)
 			{
 				var table = _selectQuery.From.Tables[tableIndex];
 				if (table.Source is SelectQuery subQuery && subQuery.IsSimple)
 				{
+					// cartesian cannot be combined with explicit joins in Access
+					if (((subQuery.From.Tables.Count > 1 && table.Joins.Count > 0)
+						|| (subQuery.From.Tables.Count == 1 && subQuery.From.Tables[0].Joins.Count > 0 && _selectQuery.From.Tables.Count > 0))
+						&& !_flags.IsCrossJoinSupported
+						&& !_flags.IsInnerJoinAsCrossSupported)
+						continue;
+
 					_selectQuery.From.Tables.RemoveAt(tableIndex);
 					_selectQuery.From.Tables.InsertRange(tableIndex, subQuery.Select.From.Tables);
+
 					if (table.Joins.Count > 0)
-					{
 						subQuery.Select.From.Tables.Last().Joins.AddRange(table.Joins);
-					}
 
 					var root = _selectQuery.ParentSelect ?? _selectQuery;
 
-					root.Walk(new WalkOptions(), static e =>
+					root.Walk(WalkOptions.Default, subQuery, static (subQuery, e) =>
 					{
 						if (e is SqlColumn column && column.Parent == subQuery)
-						{
 							return column.Expression;
-						}
-					
+
 						return e;
 					});
 
 				}
 			}
-
-			*/
 
 
 			//TODO: Failed SelectQueryTests.JoinScalarTest
