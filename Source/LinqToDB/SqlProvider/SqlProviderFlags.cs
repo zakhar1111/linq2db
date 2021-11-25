@@ -11,24 +11,28 @@ namespace LinqToDB.SqlProvider
 	{
 		public bool        IsSybaseBuggyGroupBy              { get; set; }
 
-		public bool        IsParameterOrderDependent         { get; set; }
-		public bool        AcceptsTakeAsParameter            { get; set; }
-		public bool        AcceptsTakeAsParameterIfSkip      { get; set; }
-		public bool        IsTakeSupported                   { get; set; }
-		public bool        IsSkipSupported                   { get; set; }
-		public bool        IsSkipSupportedIfTake             { get; set; }
-		public bool        IsSubQueryTakeSupported           { get; set; }
-		public bool        IsSubQueryColumnSupported         { get; set; }
-		public bool        IsSubQueryOrderBySupported        { get; set; }
-		public bool        IsCountSubQuerySupported          { get; set; }
-		public bool        IsIdentityParameterRequired       { get; set; }
-		public bool        IsApplyJoinSupported              { get; set; }
-		public bool        IsInsertOrUpdateSupported         { get; set; }
-		public bool        CanCombineParameters              { get; set; }
-		public bool        IsGroupByExpressionSupported      { get; set; }
-		public int         MaxInListValuesCount              { get; set; }
-		public bool        IsUpdateSetTableAliasSupported    { get; set; }
-		public TakeHints?  TakeHintsSupported                { get; set; }
+		public bool        IsParameterOrderDependent          { get; set; }
+		public bool        AcceptsTakeAsParameter             { get; set; }
+		public bool        AcceptsTakeAsParameterIfSkip       { get; set; }
+		public bool        IsTakeSupported                    { get; set; }
+		public bool        IsSkipSupported                    { get; set; }
+		public bool        IsSkipSupportedIfTake              { get; set; }
+		public bool        IsSubQueryTakeSupported            { get; set; }
+		public bool        IsSubQueryColumnSupported          { get; set; }
+		public bool        IsSubQueryOrderBySupported         { get; set; }
+		public bool        IsCountSubQuerySupported           { get; set; }
+		public bool        IsIdentityParameterRequired        { get; set; }
+		public bool        IsApplyJoinSupported               { get; set; }
+		public bool        IsInsertOrUpdateSupported          { get; set; }
+		public bool        CanCombineParameters               { get; set; }
+		public bool        IsGroupByExpressionSupported       { get; set; }
+		/// <summary>
+		/// When <c>true</c>GROUP BY expression could contain only single column, no functions, constants or other expressions.
+		/// </summary>
+		public bool        IsGroupBySupportsColumnOnly        { get; set; }
+		public int         MaxInListValuesCount               { get; set; }
+		public bool        IsUpdateSetTableAliasSupported     { get; set; }
+		public TakeHints?  TakeHintsSupported                 { get; set; }
 
 		/// <summary>
 		/// Provider requires that selected subquery column must be used in group by even for constant column.
@@ -166,6 +170,7 @@ namespace LinqToDB.SqlProvider
 				^ IsInsertOrUpdateSupported                    .GetHashCode()
 				^ CanCombineParameters                         .GetHashCode()
 				^ IsGroupByExpressionSupported                 .GetHashCode()
+				^ IsGroupBySupportsColumnOnly                  .GetHashCode()
 				^ MaxInListValuesCount                         .GetHashCode()
 				^ IsUpdateSetTableAliasSupported               .GetHashCode()
 				^ (TakeHintsSupported?                         .GetHashCode() ?? 0)
@@ -203,6 +208,7 @@ namespace LinqToDB.SqlProvider
 				&& IsInsertOrUpdateSupported            == other.IsInsertOrUpdateSupported
 				&& CanCombineParameters                 == other.CanCombineParameters
 				&& IsGroupByExpressionSupported         == other.IsGroupByExpressionSupported
+				&& IsGroupBySupportsColumnOnly          == other.IsGroupBySupportsColumnOnly
 				&& MaxInListValuesCount                 == other.MaxInListValuesCount
 				&& IsUpdateSetTableAliasSupported       == other.IsUpdateSetTableAliasSupported
 				&& TakeHintsSupported                   == other.TakeHintsSupported

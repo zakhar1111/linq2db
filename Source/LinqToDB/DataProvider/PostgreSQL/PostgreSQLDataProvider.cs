@@ -35,7 +35,7 @@ namespace LinqToDB.DataProvider.PostgreSQL
 			SqlProviderFlags.IsDistinctOrderBySupported        = false;
 			SqlProviderFlags.IsSubQueryOrderBySupported        = true;
 			SqlProviderFlags.IsAllSetOperationsSupported       = true;
-			SqlProviderFlags.IsGroupByExpressionSupported      = false;
+			//SqlProviderFlags.IsGroupByExpressionSupported      = false;
 
 			SetCharFieldToType<char>("bpchar"   , DataTools.GetCharExpression);
 			SetCharFieldToType<char>("character", DataTools.GetCharExpression);

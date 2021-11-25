@@ -1423,6 +1423,9 @@ namespace LinqToDB.SqlQuery
 			return false;
 		}
 
+		// TODO: IsAggregationOrWindowFunction use needs review - maybe we should call ContainsAggregationOrWindowFunction there
+		public static bool ContainsAggregationOrWindowFunction(IQueryElement expr) => null != expr.Find(IsAggregationOrWindowFunction);
+
 		/// <summary>
 		/// Collects unique keys from different sources.
 		/// </summary>

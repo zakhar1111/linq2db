@@ -48,8 +48,7 @@ namespace LinqToDB.SqlProvider
 				static (context, selectQuery) =>
 				{
 					new SelectQueryOptimizer(context.SqlProviderFlags, context.statement, selectQuery, 0).FinalizeAndValidate(
-						context.SqlProviderFlags.IsApplyJoinSupported,
-						context.SqlProviderFlags.IsGroupByExpressionSupported);
+						context.SqlProviderFlags.IsApplyJoinSupported);
 
 					return selectQuery;
 				}
@@ -73,8 +72,7 @@ namespace LinqToDB.SqlProvider
 					static (context, selectQuery) =>
 					{
 						new SelectQueryOptimizer(context.SqlProviderFlags, context.statement, selectQuery, 0).FinalizeAndValidate(
-							context.SqlProviderFlags.IsApplyJoinSupported,
-							context.SqlProviderFlags.IsGroupByExpressionSupported);
+							context.SqlProviderFlags.IsApplyJoinSupported);
 
 						return selectQuery;
 					}
