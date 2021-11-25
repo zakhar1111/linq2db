@@ -945,8 +945,8 @@ namespace LinqToDB.SqlQuery
 				return false;
 
 			var joins = select.From.Tables.SelectMany(static _ => _.Joins).Distinct().ToArray();
-			//if (joins.Length == 0)
-			//	return false;
+			if (joins.Length == 0)
+				return false;
 
 			var tables = select.From.Tables.ToArray();
 			foreach (var t in tables)
@@ -967,7 +967,7 @@ namespace LinqToDB.SqlQuery
 				foreach (var j in joins)
 					baseTable.Joins.Add(j);
 			}
-			else if (joins.Length > 0)
+			else
 			{
 				// move to subquery
 				var subQuery = new SelectQuery();
