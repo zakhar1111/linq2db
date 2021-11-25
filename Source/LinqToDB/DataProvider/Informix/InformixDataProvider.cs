@@ -24,7 +24,6 @@ namespace LinqToDB.DataProvider.Informix
 			SqlProviderFlags.IsParameterOrderDependent          = !Adapter.IsIDSProvider;
 			SqlProviderFlags.IsSubQueryTakeSupported            = false;
 			SqlProviderFlags.IsInsertOrUpdateSupported          = false;
-			SqlProviderFlags.IsGroupBySupportsColumnOnly        = true;
 			SqlProviderFlags.IsCrossJoinSupported               = false;
 			SqlProviderFlags.IsCommonTableExpressionsSupported  = true;
 			SqlProviderFlags.IsSubQueryOrderBySupported         = true;
