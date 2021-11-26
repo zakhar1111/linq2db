@@ -1285,8 +1285,8 @@ namespace LinqToDB.Mapping
 				AddScalarType(typeof(char),            new SqlDataType(DataType.NChar, typeof(char),  1, null, null, null));
 				AddScalarType(typeof(char?),           new SqlDataType(DataType.NChar, typeof(char?), 1, null, null, null));
 				AddScalarType(typeof(string),          DataType.NVarChar);
-				AddScalarType(typeof(decimal),         DataType.Decimal);
-				AddScalarType(typeof(decimal?),        DataType.Decimal);
+				AddScalarType(typeof(decimal),         SqlDataType.DbDecimal);
+				AddScalarType(typeof(decimal?),        new SqlDataType(SqlDataType.DbDecimal.Type.WithSystemType(typeof(decimal?))));
 				AddScalarType(typeof(DateTime),        DataType.DateTime2);
 				AddScalarType(typeof(DateTime?),       DataType.DateTime2);
 				AddScalarType(typeof(DateTimeOffset),  DataType.DateTimeOffset);

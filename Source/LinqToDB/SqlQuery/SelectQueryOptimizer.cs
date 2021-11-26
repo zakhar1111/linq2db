@@ -1109,6 +1109,7 @@ namespace LinqToDB.SqlQuery
 					if (e is ISqlTableSource src)
 						sources.Add(src);
 				});
+				sources.AddRange(QueryHelper.EnumerateAccessibleSources(parentQuery));
 
 				foreach (var column in query.Select.Columns)
 				{
