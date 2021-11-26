@@ -1635,6 +1635,30 @@ namespace LinqToDB.SqlProvider
 			return OptimizeElement(mappingSchema, element, context, true);
 		}
 
+		private ISqlExpression? ConvertExpressionToString(ISqlExpression stringExpression, ISqlExpression convertedExpression, ConvertVisitor<RunOptimizationContext> visitor)
+		{
+			var strType = stringExpression.GetExpressionType();
+			if (strType.DataType != DataType.Undefined
+				&& convertedExpression is SqlValue value
+				&& value.ValueType.DataType == DataType.Undefined)
+			{
+				value.ValueType = strType;
+				// in-place fix
+				return null;
+			}
+
+			var len = convertedExpression.SystemType == typeof(char) || convertedExpression.SystemType == typeof(char?)
+				? 1
+				: convertedExpression.SystemType == null
+					? 100
+					: SqlDataType.GetMaxDisplaySize(SqlDataType.GetDataType(convertedExpression.SystemType).Type.DataType);
+
+			if (len == null || len <= 0)
+				len = 100;
+
+			return ConvertExpressionImpl(new SqlFunction(typeof(string), "Convert", new SqlDataType(strType.DataType != DataType.Undefined ? strType.DataType : DataType.VarChar, len), convertedExpression), visitor);
+		}
+
 		public virtual ISqlExpression ConvertExpressionImpl(ISqlExpression expression, ConvertVisitor<RunOptimizationContext> visitor)
 		{
 			switch (expression.ElementType)
@@ -1650,29 +1674,26 @@ namespace LinqToDB.SqlProvider
 						{
 							if (be.Expr1.SystemType == typeof(string) && be.Expr2.SystemType != typeof(string))
 							{
-								var len = be.Expr2.SystemType == null ? 100 : SqlDataType.GetMaxDisplaySize(SqlDataType.GetDataType(be.Expr2.SystemType).Type.DataType);
-
-								if (len == null || len <= 0)
-									len = 100;
+								var expr2 = ConvertExpressionToString(be.Expr1, be.Expr2, visitor);
+								if (expr2 == null)
+									break;
 
 								return new SqlBinaryExpression(
 									be.SystemType,
 									be.Expr1,
 									be.Operation,
-									ConvertExpressionImpl(new SqlFunction(typeof(string), "Convert", new SqlDataType(DataType.VarChar, len), be.Expr2), visitor),
+									expr2,
 									be.Precedence);
 							}
-
-							if (be.Expr1.SystemType != typeof(string) && be.Expr2.SystemType == typeof(string))
+							else if (be.Expr1.SystemType != typeof(string) && be.Expr2.SystemType == typeof(string))
 							{
-								var len = be.Expr1.SystemType == null ? 100 : SqlDataType.GetMaxDisplaySize(SqlDataType.GetDataType(be.Expr1.SystemType).Type.DataType);
-
-								if (len == null || len <= 0)
-									len = 100;
+								var expr1 = ConvertExpressionToString(be.Expr2, be.Expr1, visitor);
+								if (expr1 == null)
+									break;
 
 								return new SqlBinaryExpression(
 									be.SystemType,
-									ConvertExpressionImpl(new SqlFunction(typeof(string), "Convert", new SqlDataType(DataType.VarChar, len), be.Expr1), visitor),
+									expr1,
 									be.Operation,
 									be.Expr2,
 									be.Precedence);

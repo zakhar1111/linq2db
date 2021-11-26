@@ -1178,7 +1178,6 @@ namespace Tests.Linq
 				dc2.LastQuery!.Should().NotContain("N'");
 		}
 
-		[ActiveIssue(2451)]
 		[Test(Description = "Test that we type non-field union column properly")]
 		public void Issue2451_ComplexColumn(
 			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
