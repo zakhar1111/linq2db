@@ -1026,12 +1026,12 @@ namespace LinqToDB.Linq.Builder
 						return o;
 
 					var t = e.Operand.Type;
-					var s = SqlDataType.GetDataType(t);
+					var s = MappingSchema.GetDataType(t);
 
 					if (o.SystemType != null && s.Type.SystemType == typeof(object))
 					{
 						t = o.SystemType;
-						s = SqlDataType.GetDataType(t);
+						s = MappingSchema.GetDataType(t);
 					}
 
 					if (e.Type == t ||
@@ -1039,7 +1039,7 @@ namespace LinqToDB.Linq.Builder
 						e.Type.IsEnum && Enum.GetUnderlyingType(e.Type) == t)
 						return o;
 
-					return new SqlFunction(e.Type, "$Convert$", SqlDataType.GetDataType(e.Type), s, o);
+					return new SqlFunction(e.Type, "$Convert$", MappingSchema.GetDataType(e.Type), s, o);
 				}
 
 				case ExpressionType.Conditional:
@@ -1342,7 +1342,10 @@ namespace LinqToDB.Linq.Builder
 			if (_constants.TryGetValue(key, out var sqlValue))
 				return sqlValue;
 
-			var dbType = columnDescriptor?.GetDbDataType(true).WithSystemType(expr.Type) ?? new DbDataType(expr.Type);
+			var columnType = columnDescriptor?.GetDbDataType(true);
+			var dbType = columnType != null && columnType.Value.SystemType == expr.Type
+				? columnType.Value.WithSystemType(expr.Type)
+				: new DbDataType(expr.Type);
 
 			var unwrapped = expr.Unwrap();
 			if (unwrapped != expr && !MappingSchema.ValueToSqlConverter.CanConvert(dbType.SystemType) &&

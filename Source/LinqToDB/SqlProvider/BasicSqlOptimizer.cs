@@ -90,7 +90,7 @@ namespace LinqToDB.SqlProvider
 			}
 
 			statement = CorrectUnionOrderBy(statement);
-			statement = FixSetOperationNulls(statement);
+			statement = FixSetOperationColumnTypes(statement);
 
 			// provider specific query correction
 			statement = FinalizeStatement(statement, evaluationContext);
@@ -134,7 +134,7 @@ namespace LinqToDB.SqlProvider
 				withStack: true);
 		}
 
-		protected virtual SqlStatement FixSetOperationNulls(SqlStatement statement)
+		protected virtual SqlStatement FixSetOperationColumnTypes(SqlStatement statement)
 		{
 			statement.VisitParentFirst(static e =>
 			{
@@ -1345,7 +1345,7 @@ namespace LinqToDB.SqlProvider
 				case QueryElementType.SqlValue:
 				{
 					var value = (SqlValue)element;
-					if (value.ValueType.DataType == DataType.Undefined && visitor.Context.MappingSchema != null)
+					if (visitor.Context.MappingSchema != null)
 					{
 						// TODO:
 						// this line produce insane amount of allocations
@@ -1669,6 +1669,7 @@ namespace LinqToDB.SqlProvider
 			var strType = stringExpression.GetExpressionType();
 			if (strType.DataType != DataType.Undefined
 				&& convertedExpression is SqlValue value
+				&& (value.ValueType.SystemType == typeof(char) || value.ValueType.SystemType == typeof(char?))
 				&& value.ValueType.DataType == DataType.Undefined)
 			{
 				value.ValueType = strType;
@@ -1680,12 +1681,14 @@ namespace LinqToDB.SqlProvider
 				? 1
 				: convertedExpression.SystemType == null
 					? 100
-					: SqlDataType.GetMaxDisplaySize(SqlDataType.GetDataType(stringExpression.SystemType).Type.DataType);
+					: SqlDataType.GetMaxDisplaySize(strType.DataType);
 
 			if (len == null || len <= 0)
 				len = 100;
 
-			return ConvertExpressionImpl(new SqlFunction(typeof(string), "Convert", new SqlDataType(strType.DataType != DataType.Undefined ? strType.DataType : DataType.VarChar, len), convertedExpression), visitor);
+			var dataType = strType.DataType != DataType.Undefined ? strType.DataType : (visitor.Context.MappingSchema?.GetDataType(typeof(string)) ?? SqlDataType.GetDataType(typeof(string))).Type.DataType;
+
+			return ConvertExpressionImpl(new SqlFunction(typeof(string), "Convert", new SqlDataType(dataType, len), convertedExpression), visitor);
 		}
 
 		public virtual ISqlExpression ConvertExpressionImpl(ISqlExpression expression, ConvertVisitor<RunOptimizationContext> visitor)
