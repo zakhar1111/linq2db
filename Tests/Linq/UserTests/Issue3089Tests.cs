@@ -60,7 +60,6 @@ namespace Tests.UserTests
 			}
 		}
 
-		[ActiveIssue(3360)]
 		[Test]
 		public void TestUnion3([IncludeDataSources(TestProvName.AllPostgreSQL)] string context)
 		{
@@ -80,7 +79,6 @@ namespace Tests.UserTests
 			}
 		}
 
-		[ActiveIssue(3360)]
 		[Test]
 		public void TestUnion4([IncludeDataSources(TestProvName.AllPostgreSQL)] string context)
 		{

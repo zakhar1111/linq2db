@@ -1133,7 +1133,6 @@ namespace Tests.Linq
 			[Column(DataType = DataType.VarChar)] public string? Str { get; set; }
 		}
 
-		[ActiveIssue(3360)]
 		[Test(Description = "Test that we type literal/parameter in set query column properly")]
 		public void Issue3360_TypeByOtherQuery(
 			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,

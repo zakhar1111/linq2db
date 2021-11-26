@@ -134,29 +134,6 @@ namespace LinqToDB.SqlProvider
 				withStack: true);
 		}
 
-		static void CorrelateNullValueTypes(ref ISqlExpression toCorrect, ISqlExpression reference)
-		{
-			if (toCorrect.ElementType == QueryElementType.Column)
-			{
-				var column     = (SqlColumn)toCorrect;
-				var columnExpr = column.Expression;
-				CorrelateNullValueTypes(ref columnExpr, reference);
-				column.Expression = columnExpr;
-			}
-			else if (toCorrect.ElementType == QueryElementType.SqlValue)
-			{
-				var value = (SqlValue)toCorrect;
-				if (value.Value == null)
-				{
-					var suggested = QueryHelper.SuggestDbDataType(reference);
-					if (suggested != null)
-					{
-						toCorrect = new SqlValue(suggested.Value, null);
-					}
-				}
-			}
-		}
-
 		protected virtual SqlStatement FixSetOperationNulls(SqlStatement statement)
 		{
 			statement.VisitParentFirst(static e =>
@@ -168,21 +145,73 @@ namespace LinqToDB.SqlProvider
 					{
 						for (int i = 0; i < query.Select.Columns.Count; i++)
 						{
-							var column     = query.Select.Columns[i];
-							var columnExpr = column.Expression;
+							var firstColumn = query.Select.Columns[i];
 
-							foreach (var setOperator in query.SetOperators)
+							var needsTyping =  firstColumn.Expression is SqlValue;
+							if (!needsTyping)
 							{
-								var otherColumn = setOperator.SelectQuery.Select.Columns[i];
-								var otherExpr   = otherColumn.Expression;
-
-								CorrelateNullValueTypes(ref columnExpr, otherExpr);
-								CorrelateNullValueTypes(ref otherExpr, columnExpr);
-
-								otherColumn.Expression = otherExpr;
+								foreach (var setOperator in query.SetOperators)
+								{
+									needsTyping = setOperator.SelectQuery.Select.Columns[i].Expression is SqlValue;
+									if (needsTyping)
+										break;
+								}
 							}
 
-							column.Expression = columnExpr;
+							if (!needsTyping)
+								continue;
+
+							DbDataType suggestedType        = default;
+							DbDataType suggestedByValueType = default;
+							if (firstColumn.Expression is SqlValue value)
+							{
+								suggestedByValueType = value.ValueType;
+							}
+							else
+							{
+								suggestedType = firstColumn.Expression.GetExpressionType();
+							}
+
+							if (suggestedType.DataType == DataType.Undefined)
+							{
+								foreach (var setOperator in query.SetOperators)
+								{
+									if (setOperator.SelectQuery.Select.Columns[i].Expression is SqlValue v)
+									{
+										if (suggestedByValueType.DataType == DataType.Undefined)
+										{
+											suggestedByValueType = v.ValueType;
+										}
+									}
+									else
+									{
+										suggestedType = setOperator.SelectQuery.Select.Columns[i].Expression.GetExpressionType();
+									}
+
+									if (suggestedType.DataType != DataType.Undefined)
+										break;
+								}
+							}
+
+							if (suggestedType.DataType == DataType.Undefined)
+								suggestedType = suggestedByValueType;
+
+							if (suggestedType.DataType != DataType.Undefined)
+							{
+								if (firstColumn.Expression is SqlValue firstVal)
+								{
+									firstColumn.Expression = new SqlValue(suggestedType, firstVal.Value);
+								}
+
+								foreach (var setOperator in query.SetOperators)
+								{
+									var v = setOperator.SelectQuery.Select.Columns[i].Expression as SqlValue;
+									if (v == null)
+										continue;
+
+									setOperator.SelectQuery.Select.Columns[i].Expression = new SqlValue(suggestedType, v.Value);
+								}
+							}
 						}
 					}
 				}
@@ -1316,7 +1345,7 @@ namespace LinqToDB.SqlProvider
 				case QueryElementType.SqlValue:
 				{
 					var value = (SqlValue)element;
-					if (visitor.Context.MappingSchema != null)
+					if (value.ValueType.DataType == DataType.Undefined && visitor.Context.MappingSchema != null)
 					{
 						// TODO:
 						// this line produce insane amount of allocations
@@ -1651,7 +1680,7 @@ namespace LinqToDB.SqlProvider
 				? 1
 				: convertedExpression.SystemType == null
 					? 100
-					: SqlDataType.GetMaxDisplaySize(SqlDataType.GetDataType(convertedExpression.SystemType).Type.DataType);
+					: SqlDataType.GetMaxDisplaySize(SqlDataType.GetDataType(stringExpression.SystemType).Type.DataType);
 
 			if (len == null || len <= 0)
 				len = 100;
