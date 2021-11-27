@@ -156,7 +156,7 @@ namespace LinqToDB.DataProvider.SQLite
 				{
 					if (!(exprExpr.Expr1 is SqlFunction func1 && (func1.Name == "$Convert$" || func1.Name == "DateTime")))
 					{
-						var left = new SqlFunction(leftType.SystemType, "$Convert$", visitor.Context.MappingSchema?.GetDataType(leftType.SystemType) ?? SqlDataType.GetDataType(leftType.SystemType),
+						var left = new SqlFunction(leftType.SystemType, "$Convert$", SqlDataType.GetDataType(leftType.SystemType),
 							new SqlDataType(leftType), exprExpr.Expr1);
 						exprExpr = new SqlPredicate.ExprExpr(left, exprExpr.Operator, exprExpr.Expr2, null);
 					}

@@ -222,7 +222,6 @@ namespace LinqToDB.SqlProvider
 			return statement;
 		}
 
-
 		protected virtual void FixEmptySelect(SqlStatement statement)
 		{
 			// avoid SELECT * top level queries, as they could create a lot of unwanted traffic
@@ -1681,7 +1680,7 @@ namespace LinqToDB.SqlProvider
 				? 1
 				: convertedExpression.SystemType == null
 					? 100
-					: SqlDataType.GetMaxDisplaySize(strType.DataType);
+					: SqlDataType.GetMaxDisplaySize(convertedExpression.GetExpressionType().DataType);
 
 			if (len == null || len <= 0)
 				len = 100;

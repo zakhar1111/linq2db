@@ -119,6 +119,7 @@ namespace LinqToDB.DataProvider.Firebird
 				case DataType.DateTime2     :
 				case DataType.SmallDateTime :
 				case DataType.DateTime      : StringBuilder.Append("TimeStamp");                          break;
+				case DataType.VarChar       :
 				case DataType.NVarChar      :
 					StringBuilder.Append("VarChar");
 

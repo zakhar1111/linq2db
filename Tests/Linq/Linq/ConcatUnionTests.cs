@@ -1134,14 +1134,10 @@ namespace Tests.Linq
 		}
 
 		[Test(Description = "Test that we type literal/parameter in set query column properly")]
-		public void Issue3360_TypeByOtherQuery(
-			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
-			[Values] bool inline)
+		public void Issue3360_TypeByOtherQuery([IncludeDataSources(true, TestProvName.AllSqlServer)] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3360Table>();
-
-			db.InlineParameters = inline;
 
 			var query1 = tb.Select(p => new { p.Id, p.Str                });
 			var query2 = tb.Select(p => new { p.Id, Str = (string?)"str" });
@@ -1156,14 +1152,23 @@ namespace Tests.Linq
 		}
 
 		[Test(Description = "Test that we type literal/parameter in set query column properly")]
-		public void Issue3360_TypeByProjectionProperty(
-			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
-			[Values] bool inline)
+		public void Issue3360_TypeByOtherQuery_AllProviders([DataSources] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3360Table>();
 
-			db.InlineParameters = inline;
+			var query1 = tb.Select(p => new { p.Id, p.Str                });
+			var query2 = tb.Select(p => new { p.Id, Str = (string?)"str" });
+
+			query1.Concat(query2).ToArray();
+			query2.Concat(query1).ToArray();
+		}
+
+		[Test(Description = "Test that we type literal/parameter in set query column properly")]
+		public void Issue3360_TypeByProjectionProperty([IncludeDataSources(true, TestProvName.AllSqlServer)] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
 
 			var query1 = tb.Select(p => new Issue3360Table() { Id = p.Id, Str = (string?)"str1" });
 			var query2 = tb.Select(p => new Issue3360Table() { Id = p.Id, Str = (string?)"str2" });
@@ -1177,14 +1182,23 @@ namespace Tests.Linq
 				dc2.LastQuery!.Should().NotContain("N'");
 		}
 
-		[Test(Description = "Test that we type non-field union column properly")]
-		public void Issue2451_ComplexColumn(
-			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
-			[Values] bool inline)
+		[Test(Description = "Test that non-sqlserver providers work too")]
+		public void Issue3360_TypeByProjectionProperty_AllProviders([DataSources] string context)
 		{
 			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
 
-			db.InlineParameters = inline;
+			var query1 = tb.Select(p => new Issue3360Table() { Id = p.Id, Str = (string?)"str1" });
+			var query2 = tb.Select(p => new Issue3360Table() { Id = p.Id, Str = (string?)"str2" });
+
+			query1.Concat(query2).ToArray();
+			query2.Concat(query1).ToArray();
+		}
+
+		[Test(Description = "Test that we type non-field union column properly")]
+		public void Issue2451_ComplexColumn([IncludeDataSources(true, TestProvName.AllSqlServer)] string context)
+		{
+			using var db = GetDataContext(context);
 
 			var query1 = db.Person.Select(p => new Person() { FirstName = p.FirstName });
 			var query2 = db.Person.Select(p => new Person() { FirstName = p.FirstName + '/' + p.LastName });
@@ -1200,6 +1214,18 @@ namespace Tests.Linq
 			query2.Concat(query1).ToArray();
 			if (db is TestDataConnection dc2)
 				dc2.LastQuery!.Should().NotContain("Convert(VarChar");
+		}
+
+		[Test(Description = "Test that other providers work")]
+		public void Issue2451_ComplexColumn_All([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query1 = db.Person.Select(p => new Person() { FirstName = p.FirstName });
+			var query2 = db.Person.Select(p => new Person() { FirstName = p.FirstName + '/' + p.LastName });
+
+			query1.Concat(query2).ToArray();
+			query2.Concat(query1).ToArray();
 		}
 
 		public record class  Issue3357RecordClass (string FirstName, string LastName);

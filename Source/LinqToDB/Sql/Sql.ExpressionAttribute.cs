@@ -262,7 +262,7 @@ namespace LinqToDB
 
 			public static readonly SqlExpression UnknownExpression = new ("!!!");
 
-			public static void PrepareParameterValues(MappingSchema mappingSchema, Expression expression, ref string? expressionStr, bool includeInstance, out List<Expression?> knownExpressions, out List<ISqlExpression>? genericTypes)
+			public static void PrepareParameterValues(Expression expression, ref string? expressionStr, bool includeInstance, out List<Expression?> knownExpressions, out List<ISqlExpression>? genericTypes)
 			{
 				knownExpressions = new List<Expression?>();
 				genericTypes     = null;
@@ -306,19 +306,15 @@ namespace LinqToDB
 					if (mc.Method.DeclaringType!.IsGenericType)
 					{
 						genericTypes ??= new List<ISqlExpression>();
-						foreach (var type in mc.Method.DeclaringType.GetGenericArguments())
-						{
-							genericTypes.Add((ISqlExpression)mappingSchema.GetDataType(type));
-						}
+						genericTypes.AddRange(mc.Method.DeclaringType.GetGenericArguments()
+							.Select(static t => (ISqlExpression)SqlDataType.GetDataType(t)));
 					}
 
 					if (mc.Method.IsGenericMethod)
 					{
 						genericTypes ??= new List<ISqlExpression>();
-						foreach (var type in mc.Method.GetGenericArguments())
-						{
-							genericTypes.Add((ISqlExpression)mappingSchema.GetDataType(type));
-						}
+						genericTypes.AddRange(mc.Method.GetGenericArguments()
+							.Select(static t => (ISqlExpression)SqlDataType.GetDataType(t)));
 					}
 				}
 				else
@@ -444,7 +440,7 @@ namespace LinqToDB
 				Expression expression, Func<TContext, Expression, ColumnDescriptor?, ISqlExpression> converter)
 			{
 				var expressionStr = Expression;
-				PrepareParameterValues(dataContext.MappingSchema, expression, ref expressionStr, true, out var knownExpressions, out var genericTypes);
+				PrepareParameterValues(expression, ref expressionStr, true, out var knownExpressions, out var genericTypes);
 
 				if (string.IsNullOrEmpty(expressionStr))
 					throw new LinqToDBException($"Cannot retrieve SQL Expression body from expression '{expression}'.");

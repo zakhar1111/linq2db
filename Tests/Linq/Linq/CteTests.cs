@@ -1238,21 +1238,16 @@ namespace Tests.Linq
 
 		private class Issue3360Projection
 		{
-			public int     Id  { get; set; }
-			public string? Str { get; set; }
+			public int     Id   { get; set; }
+			public string? Str  { get; set; }
 		}
 
-		[ActiveIssue(3360)]
 		// SqlException : Types don't match between the anchor and the recursive part in column "Str" of recursive query "cte".
 		[Test(Description = "Test that we type literal/parameter in set query column properly")]
-		public void Issue3360_TypeByOtherQuery(
-			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
-			[Values] bool inline)
+		public void Issue3360_TypeByOtherQuery([IncludeDataSources(true, TestProvName.AllSqlServer)] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3360Table>();
-
-			db.InlineParameters = inline;
 
 			var query = db.GetCte<Issue3360Projection>(cte =>
 			{
@@ -1264,21 +1259,105 @@ namespace Tests.Linq
 					);
 			});
 
-
 			query.ToArray();
+
 			if (db is TestDataConnection dc)
+			{
 				dc.LastQuery!.Should().NotContain("N'");
+				dc.LastQuery!.ToUpperInvariant().Should().Contain("AS VARCHAR(MAX))", Exactly.Twice());
+			}
 		}
 
-		[Test(Description = "Test that we type literal/parameter in set query column properly")]
-		public void Issue3360_TypeByProjectionProperty(
-			[IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context,
-			[Values] bool inline)
+		[Test(Description = "Test that we don't need typing for non-sqlserver providers")]
+		public void Issue3360_TypeByOtherQuery_AllProviders([CteContextSource] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3360Table>();
 
-			db.InlineParameters = inline;
+			var query = db.GetCte<Issue3360Projection>(cte =>
+			{
+				return tb.Select(p => new Issue3360Projection() { Id = p.Id, Str = p.Str })
+				.Concat(
+					from p in cte
+					join r in tb on p.Id equals r.Id + 1
+					select new Issue3360Projection() { Id = p.Id, Str = "Str" }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Table]
+		private class Issue3360WithEnum
+		{
+			[Column                                          ] public int     Id  { get; set; }
+			[Column(DataType = DataType.VarChar, Length = 50)] public StrEnum Str { get; set; }
+		}
+
+		enum StrEnum
+		{
+			[MapValue("THIS_IS_ONE")]
+			One = 1,
+			[MapValue("THIS_IS_TWO")]
+			Two
+		}
+
+		private class Issue3360WithEnumProjection
+		{
+			public int     Id  { get; set; }
+			public StrEnum Str { get; set; }
+		}
+
+		[Test(Description = "Test that we type literal/parameter in set query column properly")]
+		public void Issue3360_TypeStringEnum([IncludeDataSources(true, TestProvName.AllSqlServer)] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360WithEnum>();
+
+			var query = db.GetCte<Issue3360WithEnumProjection>(cte =>
+			{
+				return tb.Select(p => new Issue3360WithEnumProjection() { Id = p.Id, Str = p.Str })
+				.Concat(
+					from p in cte
+					join r in tb on p.Id equals r.Id + 1
+					select new Issue3360WithEnumProjection() { Id = p.Id, Str = StrEnum.Two }
+					);
+			});
+
+			query.ToArray();
+
+			if (db is TestDataConnection dc)
+			{
+				dc.LastQuery!.Should().NotContain("N'");
+				dc.LastQuery!.Should().Contain("'THIS_IS_TWO'");
+				dc.LastQuery!.ToUpperInvariant().Should().Contain("AS VARCHAR(MAX))", Exactly.Twice());
+			}
+		}
+
+		[Test(Description = "Test that we don't need typing for non-sqlserver providers")]
+		public void Issue3360_TypeStringEnum_AllProviders([CteContextSource] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360WithEnum>();
+
+			var query = db.GetCte<Issue3360WithEnumProjection>(cte =>
+			{
+				return tb.Select(p => new Issue3360WithEnumProjection() { Id = p.Id, Str = p.Str })
+				.Concat(
+					from p in cte
+					join r in tb on p.Id equals r.Id + 1
+					select new Issue3360WithEnumProjection() { Id = p.Id, Str = StrEnum.Two }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Test(Description = "Test that we type literal/parameter in set query column properly")]
+		public void Issue3360_TypeByProjectionProperty([IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
 
 			var query = db.GetCte<Issue3360Table>(cte =>
 			{
@@ -1292,18 +1371,35 @@ namespace Tests.Linq
 
 			query.ToArray();
 			if (db is TestDataConnection dc)
+			{
 				dc.LastQuery!.Should().NotContain("N'");
+				dc.LastQuery!.ToUpperInvariant().Should().Contain("AS VARCHAR(MAX))", Exactly.Twice());
+			}
 		}
 
-		[ActiveIssue(2451)]
-		[Test(Description = "Test that we type non-field union column properly")]
-		public void Issue2451_ComplexColumn(
-			[IncludeDataSources(true, TestProvName.AllSqlServer)] string context,
-			[Values] bool inline)
+		[Test(Description = "Test that we don't need typing for non-sqlserver providers")]
+		public void Issue3360_TypeByProjectionProperty_AllProviders([CteContextSource] string context)
 		{
 			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
 
-			db.InlineParameters = inline;
+			var query = db.GetCte<Issue3360Table>(cte =>
+			{
+				return tb.Select(p => new Issue3360Table() { Id = p.Id, Str = "Str1" })
+				.Concat(
+					from p in cte
+					join r in tb on p.Id equals r.Id + 1
+					select new Issue3360Table() { Id = p.Id, Str = "Str2" }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Test(Description = "Test that we type non-field union column properly")]
+		public void Issue2451_ComplexColumn([IncludeDataSources(true, TestProvName.AllSqlServer)] string context)
+		{
+			using var db = GetDataContext(context);
 
 			var query = db.GetCte<Person>(cte =>
 			{
@@ -1318,7 +1414,28 @@ namespace Tests.Linq
 			query.ToArray();
 
 			if (db is TestDataConnection dc)
+			{
 				dc.LastQuery!.Should().NotContain("Convert(VarChar");
+				dc.LastQuery!.ToUpperInvariant().Should().Contain("AS NVARCHAR(MAX))", Exactly.Twice());
+			}
+		}
+
+		[Test(Description = "Test that other providers work")]
+		public void Issue2451_ComplexColumn_All([CteContextSource] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query = db.GetCte<Person>(cte =>
+			{
+				return db.Person.Select(p => new Person() { FirstName = p.FirstName })
+				.Concat(
+					from p in cte
+					join r in db.Person on p.FirstName equals r.LastName
+					select new Person() { FirstName = r.FirstName + '/' + r.LastName }
+					);
+			});
+
+			query.ToArray();
 		}
 
 		public record class  Issue3357RecordClass (string FirstName, string LastName);

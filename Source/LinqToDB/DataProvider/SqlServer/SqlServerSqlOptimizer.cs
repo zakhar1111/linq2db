@@ -2,6 +2,7 @@
 
 namespace LinqToDB.DataProvider.SqlServer
 {
+	using Common;
 	using Extensions;
 	using SqlProvider;
 	using SqlQuery;
@@ -193,6 +194,77 @@ namespace LinqToDB.DataProvider.SqlServer
 			}
 
 			return expression;
+		}
+
+		protected override SqlStatement FixSetOperationColumnTypes(SqlStatement statement)
+		{
+			statement = base.FixSetOperationColumnTypes(statement);
+
+			// sql server use more strict checks for sets in recursive CTEs, so we need to implement additional fixes for them.
+			// List of known limitations:
+			// - string types should be same by both type and length
+			statement.Visit(static e =>
+			{
+				if (e is CteClause cte && cte.Body?.HasSetOperators == true)
+				{
+					var query = cte.Body;
+
+					for (int i = 0; i < query.Select.Columns.Count; i++)
+					{
+						var firstColumn = query.Select.Columns[i];
+
+						var field          = QueryHelper.GetUnderlyingField(firstColumn.Expression);
+						var applyConvert   = field == null;
+						var commonDataType = firstColumn.Expression.GetExpressionType().DataType;
+
+						if (commonDataType == DataType.NVarChar || commonDataType == DataType.NChar || commonDataType == DataType.NText)
+							commonDataType = DataType.NVarChar;
+						else if (commonDataType == DataType.VarChar || commonDataType == DataType.Char || commonDataType == DataType.Text)
+							commonDataType = DataType.VarChar;
+						else
+							continue;
+
+						if (!applyConvert || commonDataType != DataType.NVarChar)
+						{
+							foreach (var setOperator in query.SetOperators)
+							{
+								var column   = setOperator.SelectQuery.Select.Columns[i];
+								applyConvert = applyConvert || QueryHelper.GetUnderlyingField(column) != field;
+								var type     = column.Expression.GetExpressionType();
+
+								if (type.DataType == DataType.NVarChar || type.DataType == DataType.NChar || type.DataType == DataType.NText)
+								{
+									if (commonDataType == DataType.VarChar)
+									{
+										applyConvert = true;
+									}
+
+									commonDataType = DataType.NVarChar;
+									break;
+								}
+
+								if (applyConvert && commonDataType == DataType.NVarChar)
+									break;
+							}
+						}
+
+						if (applyConvert)
+						{
+							var type = new DbDataType(typeof(string), commonDataType);
+
+							firstColumn.Expression = new SqlExpression(firstColumn.Expression.SystemType, "Cast({0} as {1})", Precedence.Primary, firstColumn.Expression, new SqlDataType(type));
+
+							foreach (var setOperator in query.SetOperators)
+							{
+								var column        = setOperator.SelectQuery.Select.Columns[i];
+								column.Expression = new SqlExpression(column.Expression.SystemType, "Cast({0} as {1})", Precedence.Primary, column.Expression, new SqlDataType(type));
+							}
+						}
+					}
+				}
+			});
+
+			return statement;
 		}
 
 	}
