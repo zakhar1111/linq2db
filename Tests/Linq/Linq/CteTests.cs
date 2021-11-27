@@ -1269,7 +1269,7 @@ namespace Tests.Linq
 		}
 
 		[Test(Description = "Test that we don't need typing for non-sqlserver providers")]
-		public void Issue3360_TypeByOtherQuery_AllProviders([CteContextSource] string context)
+		public void Issue3360_TypeByOtherQuery_DB2([CteContextSource(ProviderName.DB2)] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3360Table>();
@@ -1280,6 +1280,26 @@ namespace Tests.Linq
 				.Concat(
 					from p in cte
 					join r in tb on p.Id equals r.Id + 1
+					select new Issue3360Projection() { Id = p.Id, Str = "Str" }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Test(Description = "Test that we don't need typing for non-sqlserver providers")]
+		public void Issue3360_TypeByOtherQuery_AllProviders([IncludeDataSources(true, ProviderName.DB2)] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
+
+			var query = db.GetCte<Issue3360Projection>(cte =>
+			{
+				return tb.Select(p => new Issue3360Projection() { Id = p.Id, Str = p.Str })
+				.Concat(
+					from p in cte
+					from r in tb
+					where p.Id == r.Id + 1
 					select new Issue3360Projection() { Id = p.Id, Str = "Str" }
 					);
 			});
@@ -1335,7 +1355,7 @@ namespace Tests.Linq
 		}
 
 		[Test(Description = "Test that we don't need typing for non-sqlserver providers")]
-		public void Issue3360_TypeStringEnum_AllProviders([CteContextSource] string context)
+		public void Issue3360_TypeStringEnum_AllProviders([CteContextSource(ProviderName.DB2)] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3360WithEnum>();
@@ -1346,6 +1366,27 @@ namespace Tests.Linq
 				.Concat(
 					from p in cte
 					join r in tb on p.Id equals r.Id + 1
+					select new Issue3360WithEnumProjection() { Id = p.Id, Str = StrEnum.Two }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		// DB2: https://i.imgflip.com/5vpzib.jpg
+		[Test(Description = "Test that we don't need typing for non-sqlserver providers")]
+		public void Issue3360_TypeStringEnum_DB2([IncludeDataSources(true, ProviderName.DB2)] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360WithEnum>();
+
+			var query = db.GetCte<Issue3360WithEnumProjection>(cte =>
+			{
+				return tb.Select(p => new Issue3360WithEnumProjection() { Id = p.Id, Str = p.Str })
+				.Concat(
+					from p in cte
+					from r in tb
+					where p.Id == r.Id + 1
 					select new Issue3360WithEnumProjection() { Id = p.Id, Str = StrEnum.Two }
 					);
 			});
@@ -1378,7 +1419,7 @@ namespace Tests.Linq
 		}
 
 		[Test(Description = "Test that we don't need typing for non-sqlserver providers")]
-		public void Issue3360_TypeByProjectionProperty_AllProviders([CteContextSource] string context)
+		public void Issue3360_TypeByProjectionProperty_AllProviders([CteContextSource(ProviderName.DB2)] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3360Table>();
@@ -1389,6 +1430,26 @@ namespace Tests.Linq
 				.Concat(
 					from p in cte
 					join r in tb on p.Id equals r.Id + 1
+					select new Issue3360Table() { Id = p.Id, Str = "Str2" }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Test(Description = "Test that we don't need typing for non-sqlserver providers")]
+		public void Issue3360_TypeByProjectionProperty_DB2([IncludeDataSources(true, ProviderName.DB2)] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360Table>();
+
+			var query = db.GetCte<Issue3360Table>(cte =>
+			{
+				return tb.Select(p => new Issue3360Table() { Id = p.Id, Str = "Str1" })
+				.Concat(
+					from p in cte
+					from r in tb
+					where p.Id == r.Id + 1
 					select new Issue3360Table() { Id = p.Id, Str = "Str2" }
 					);
 			});
@@ -1421,7 +1482,7 @@ namespace Tests.Linq
 		}
 
 		[Test(Description = "Test that other providers work")]
-		public void Issue2451_ComplexColumn_All([CteContextSource] string context)
+		public void Issue2451_ComplexColumn_All([CteContextSource(ProviderName.DB2)] string context)
 		{
 			using var db = GetDataContext(context);
 
@@ -1431,6 +1492,25 @@ namespace Tests.Linq
 				.Concat(
 					from p in cte
 					join r in db.Person on p.FirstName equals r.LastName
+					select new Person() { FirstName = r.FirstName + '/' + r.LastName }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Test(Description = "Test that other providers work")]
+		public void Issue2451_ComplexColumn_DB2([IncludeDataSources(true, ProviderName.DB2)] string context)
+		{
+			using var db = GetDataContext(context);
+
+			var query = db.GetCte<Person>(cte =>
+			{
+				return db.Person.Select(p => new Person() { FirstName = p.FirstName })
+				.Concat(
+					from p in cte
+					from r in db.Person
+					where p.FirstName == r.LastName
 					select new Person() { FirstName = r.FirstName + '/' + r.LastName }
 					);
 			});
