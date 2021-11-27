@@ -1244,7 +1244,7 @@ namespace Tests.Linq
 
 		// SqlException : Types don't match between the anchor and the recursive part in column "Str" of recursive query "cte".
 		[Test(Description = "Test that we type literal/parameter in set query column properly")]
-		public void Issue3360_TypeByOtherQuery([IncludeDataSources(true, TestProvName.AllSqlServer)] string context)
+		public void Issue3360_TypeByOtherQuery([IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3360Table>();
@@ -1309,7 +1309,7 @@ namespace Tests.Linq
 		}
 
 		[Test(Description = "Test that we type literal/parameter in set query column properly")]
-		public void Issue3360_TypeStringEnum([IncludeDataSources(true, TestProvName.AllSqlServer)] string context)
+		public void Issue3360_TypeStringEnum([IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context)
 		{
 			using var db = GetDataContext(context);
 			using var tb = db.CreateLocalTable<Issue3360WithEnum>();
@@ -1397,7 +1397,7 @@ namespace Tests.Linq
 		}
 
 		[Test(Description = "Test that we type non-field union column properly")]
-		public void Issue2451_ComplexColumn([IncludeDataSources(true, TestProvName.AllSqlServer)] string context)
+		public void Issue2451_ComplexColumn([IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context)
 		{
 			using var db = GetDataContext(context);
 
