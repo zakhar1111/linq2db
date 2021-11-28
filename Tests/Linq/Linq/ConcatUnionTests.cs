@@ -1497,7 +1497,6 @@ namespace Tests.Linq
 				.ToList();
 		}
 
-		[ActiveIssue(2511)]
 		[Test(Description = "ArgumentOutOfRangeException : Index was out of range. Must be non-negative and less than the size of the collection.")]
 		public void Issue2511_Query1([DataSources] string context)
 		{
