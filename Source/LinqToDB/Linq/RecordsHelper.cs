@@ -98,8 +98,16 @@ namespace LinqToDB.Linq
 		{
 			var attrs = mappingSchema.GetAttributes<Attribute>(objectType);
 
-			return attrs.Any(attr => attr.GetType().FullName == "Microsoft.FSharp.Core.CompilationMappingAttribute")
-				&& !attrs.Any(attr => attr.GetType().FullName == "Microsoft.FSharp.Core.CLIMutableAttribute");
+			var compilationMappingAttr = attrs.FirstOrDefault(attr => attr.GetType().FullName == "Microsoft.FSharp.Core.CompilationMappingAttribute");
+			if (compilationMappingAttr == null)
+				return false;
+
+			// https://github.com/dotnet/fsharp/blob/1fcb351bb98fe361c7e70172ea51b5e6a4b52ee0/src/fsharp/FSharp.Core/prim-types.fsi
+			// ObjectType = 3
+			if (Convert.ToInt32(((dynamic)compilationMappingAttr).SourceConstructFlags) == 3)
+				return false;
+
+			return !attrs.Any(attr => attr.GetType().FullName == "Microsoft.FSharp.Core.CLIMutableAttribute");
 		}
 
 		private static bool HasDefaultConstructor(Type objectType)
