@@ -1520,9 +1520,10 @@ namespace Tests.Linq
 		{
 			using var db = GetDataContext(context);
 
-			db.Person.LoadWith(p => p.Patient)
+			var res = db.Person.LoadWith(p => p.Patient)
 				.Select(p => new Person()
 				{
+					ID         = p.ID,
 					FirstName  = p.FirstName,
 					LastName   = p.LastName,
 					MiddleName = p.MiddleName,
@@ -1531,9 +1532,15 @@ namespace Tests.Linq
 				}).Take(2)
 				.Concat(db.Person.LoadWith(p => p.Patient))
 				.ToArray();
+
+			Assert.AreEqual(6, res.Length);
+			var pat = res.Where(r => r.ID == 2).First();
+			Assert.IsNull(pat.Patient);
+			pat = res.Where(r => r.ID == 2).Skip(1).Single();
+			Assert.IsNotNull(pat.Patient);
+			Assert.AreEqual("Hallucination with Paranoid Bugs' Delirium of Persecution", pat.Patient!.Diagnosis);
 		}
 
-		[ActiveIssue(2511)]
 		[Test(Description = "Working version of Issue2511_Query2")]
 		public void Issue2511_Query3([DataSources] string context)
 		{
@@ -1542,6 +1549,7 @@ namespace Tests.Linq
 			var res = db.Person.LoadWith(p => p.Patient)
 				.Select(p => new Person()
 				{
+					ID         = p.ID,
 					FirstName  = p.FirstName,
 					LastName   = p.LastName,
 					MiddleName = p.MiddleName,
@@ -1551,11 +1559,10 @@ namespace Tests.Linq
 				.ToArray();
 
 			Assert.AreEqual(6, res.Length);
-			var pat = res.Where(r => r.ID == 2).Single();
+			var pat = res.Where(r => r.ID == 2).First();
 			Assert.IsNull(pat.Patient);
 			pat = res.Where(r => r.ID == 2).Skip(1).Single();
-			Assert.IsNotNull(pat.Patient);
-			Assert.AreEqual("Hallucination with Paranoid Bugs' Delirium of Persecution", pat.Patient!.Diagnosis);
+			Assert.IsNull(pat.Patient);
 		}
 	}
 }
