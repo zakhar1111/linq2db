@@ -612,7 +612,7 @@ namespace Tests.Linq
 			}
 		}
 
-		[ActiveIssue(3357)]
+		[ActiveIssue("struct record as entity")]
 		[Test]
 		public void TestRecordStructMapping([IncludeDataSources(true, TestProvName.AllSQLite)] string context)
 		{

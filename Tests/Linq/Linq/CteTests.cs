@@ -1575,6 +1575,7 @@ namespace Tests.Linq
 				query.ToArray());
 		}
 
+		[ActiveIssue("struct record as entity")]
 		[Test(Description = "record type support")]
 		public void Issue3357_RecordStruct([CteContextSource(ProviderName.DB2)] string context)
 		{
@@ -1595,6 +1596,7 @@ namespace Tests.Linq
 				query.ToArray());
 		}
 
+		[ActiveIssue("struct record as entity")]
 		[Test(Description = "record type support")]
 		public void Issue3357_RecordStruct_DB2([IncludeDataSources(true, ProviderName.DB2)] string context)
 		{

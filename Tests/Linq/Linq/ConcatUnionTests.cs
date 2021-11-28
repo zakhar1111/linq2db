@@ -1257,6 +1257,7 @@ namespace Tests.Linq
 				.Concat(db.Person.Select(p => new Issue3357RecordClass(p.ID, p.FirstName, p.LastName))));
 		}
 
+		[ActiveIssue("struct record as entity")]
 		[Test(Description = "record type support")]
 		public void Issue3357_RecordStruct([DataSources] string context)
 		{
