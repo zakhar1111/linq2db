@@ -32,7 +32,7 @@ namespace LinqToDB.Linq
 		/// <summary>
 		/// Mask for types with record-like constructor.
 		/// </summary>
-		WithConstructor = FSharp | RecordClass,
+		WithConstructor = FSharp | RecordClass | AnonymousType,
 	}
 
 	internal static class RecordsHelper
