@@ -423,7 +423,7 @@ namespace LinqToDB.Linq.Builder
 						if (nctor != null)
 						{
 							var recordType = RecordsHelper.GetRecordType(Builder.MappingSchema, nctor.Type);
-							if ((recordType & RecordType.WithConstructor) != 0)
+							if ((recordType & RecordType.CallConstructorOnRead) != 0)
 							{
 								if (nctor.Members != null)
 									throw new LinqToDBException($"Call to '{nctor.Type}' record constructor cannot have initializers.");
@@ -447,8 +447,6 @@ namespace LinqToDB.Linq.Builder
 							{
 								if (nctor.Members == null)
 									throw new LinqToDBException($"Call to '{nctor.Type}' constructor lacks initializers.");
-								else if (nctor.Arguments.Count != 0)
-									throw new LinqToDBException($"Call to '{nctor.Type}' constructor with parameters is not supported.");
 								else
 								{
 									var members = nctor.Members

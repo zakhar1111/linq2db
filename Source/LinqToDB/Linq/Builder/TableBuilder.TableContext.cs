@@ -484,7 +484,7 @@ namespace LinqToDB.Linq.Builder
 
 								var exprs = GetExpressions(typeAcc, memberRecordType, cols).ToList();
 
-								if ((memberRecordType & RecordType.WithConstructor) != 0)
+								if ((memberRecordType & RecordType.CallConstructorOnWrite) != 0)
 								{
 									var expr = BuildFromParametrizedConstructor(member.Type, exprs);
 
