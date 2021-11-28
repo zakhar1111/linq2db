@@ -1437,7 +1437,6 @@ namespace Tests.Linq
 			query.Concat(query).ToArray();
 		}
 
-		[ActiveIssue(2505)]
 		[Test(Description = "NullReferenceException : Object reference not set to an instance of an object.")]
 		public void Issue2505([DataSources] string context)
 		{
