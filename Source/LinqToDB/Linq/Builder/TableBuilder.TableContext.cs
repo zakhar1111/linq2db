@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using JetBrains.Annotations;
 
 namespace LinqToDB.Linq.Builder
@@ -227,32 +226,6 @@ namespace LinqToDB.Linq.Builder
 				}
 			}
 
-			bool IsAnonymous(Type type)
-			{
-				if (!type.IsPublic &&
-					 type.IsGenericType &&
-					(type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal) ||
-					 type.Name.StartsWith("VB$AnonymousType",   StringComparison.Ordinal)))
-				{
-					return Builder.MappingSchema.GetAttribute<CompilerGeneratedAttribute>(type) != null;
-				}
-
-				return false;
-			}			
-			
-			bool HasDefaultConstructor(Type type)
-			{
-				var constructors = type.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-				foreach (var constructor in constructors)
-				{
-					if (constructor.GetParameters().Length == 0)
-						return true;
-				}
-
-				return constructors.Length == 0;
-			}
-
 			ParameterExpression? _variable;
 
 			Expression BuildTableExpression(bool buildBlock, Type objectType, Tuple<int, SqlField?>[] index)
@@ -260,6 +233,7 @@ namespace LinqToDB.Linq.Builder
 				if (buildBlock && _variable != null)
 					return _variable;
 
+				var recordType       = RecordsHelper.GetRecordType(Builder.MappingSchema, objectType);
 				var entityDescriptor = Builder.MappingSchema.GetEntityDescriptor(objectType);
 
 				// choosing type that can be instantiated
@@ -269,10 +243,8 @@ namespace LinqToDB.Linq.Builder
 				}
 
 				var expr =
-					BuilderExtensions.IsFSharpRecord(Builder.MappingSchema, objectType) ?
-						BuildRecordConstructor (entityDescriptor, objectType, index, true) :
-					IsAnonymous(objectType) || !HasDefaultConstructor(objectType) ?
-						BuildRecordConstructor (entityDescriptor, objectType, index, false) :
+					recordType != RecordType.NotRecord ?
+						BuildRecordConstructor (entityDescriptor, objectType, index, recordType) :
 						BuildDefaultConstructor(entityDescriptor, objectType, index);
 
 				expr = BuildCalculatedColumns(entityDescriptor, expr);
@@ -433,16 +405,16 @@ namespace LinqToDB.Linq.Builder
 				public Expression Expression = null!;
 			}
 
-			IEnumerable<(string Name, Expression? Expr)> GetExpressions(TypeAccessor typeAccessor, bool isFSharpRecordType, List<ColumnInfo> columns)
+			IEnumerable<(string Name, Expression? Expr)> GetExpressions(TypeAccessor typeAccessor, RecordType recordType, List<ColumnInfo> columns)
 			{
 				IEnumerable<MemberAccessor> members = typeAccessor.Members;
 
-				if (isFSharpRecordType)
+				if (recordType == RecordType.FSharp)
 				{
 					var membersWithOrder = new List<(int sequence, MemberAccessor ma)>();
 					foreach (var member in typeAccessor.Members)
 					{
-						var sequence = BuilderExtensions.GetFSharpRecordMemberSequence(Builder.MappingSchema, typeAccessor.Type, member.MemberInfo);
+						var sequence = RecordsHelper.GetFSharpRecordMemberSequence(Builder.MappingSchema, typeAccessor.Type, member.MemberInfo);
 						if (sequence != -1)
 						{
 							membersWithOrder.Add((sequence, member));
@@ -507,12 +479,12 @@ namespace LinqToDB.Linq.Builder
 									col.IsComplex = col.Name.Contains(".");
 								}
 
-								var typeAcc        = TypeAccessor.GetAccessor(member.Type);
-								var isFSharpRecord = BuilderExtensions.IsFSharpRecord(Builder.MappingSchema, member.Type);
+								var typeAcc          = TypeAccessor.GetAccessor(member.Type);
+								var memberRecordType = RecordsHelper.GetRecordType(Builder.MappingSchema, member.Type);
 
-								var exprs = GetExpressions(typeAcc, isFSharpRecord, cols).ToList();
+								var exprs = GetExpressions(typeAcc, memberRecordType, cols).ToList();
 
-								if (isFSharpRecord || !HasDefaultConstructor(member.Type))
+								if ((memberRecordType & RecordType.WithConstructor) != 0)
 								{
 									var expr = BuildFromParametrizedConstructor(member.Type, exprs);
 
@@ -606,7 +578,7 @@ namespace LinqToDB.Linq.Builder
 				return expr;
 			}
 
-			Expression BuildRecordConstructor(EntityDescriptor entityDescriptor, Type objectType, Tuple<int, SqlField?>[] index, bool isFSharpRecord)
+			Expression BuildRecordConstructor(EntityDescriptor entityDescriptor, Type objectType, Tuple<int, SqlField?>[] index, RecordType recordType)
 			{
 				var columns = new List<ColumnInfo>();
 				foreach (var idx in index)
@@ -629,7 +601,7 @@ namespace LinqToDB.Linq.Builder
 					}
 				}
 
-				var exprs = GetExpressions(entityDescriptor.TypeAccessor, isFSharpRecord, columns).ToList();
+				var exprs = GetExpressions(entityDescriptor.TypeAccessor, recordType, columns).ToList();
 
 				return BuildFromParametrizedConstructor(objectType, exprs);
 			}

@@ -52,9 +52,10 @@ namespace LinqToDB.Data
 
 			var entityDescriptor = MappingSchema.GetEntityDescriptor(objectType);
 
-			var expr = !BuilderExtensions.IsFSharpRecord(MappingSchema, objectType)
+			var recordType = RecordsHelper.GetRecordType(MappingSchema, objectType);
+			var expr = recordType == RecordType.NotRecord
 				? BuildDefaultConstructor(entityDescriptor, objectType)
-				: BuildRecordConstructor (entityDescriptor, objectType);
+				: BuildRecordConstructor (entityDescriptor, objectType, recordType);
 
 			expr = ProcessExpression(expr);
 
@@ -174,15 +175,15 @@ namespace LinqToDB.Data
 			public Expression Expression = null!;
 		}
 
-		IEnumerable<Expression?> GetExpressions(TypeAccessor typeAccessor, bool isFSharpRecordType, List<ColumnInfo> columns)
+		IEnumerable<Expression?> GetExpressions(TypeAccessor typeAccessor, RecordType recordType, List<ColumnInfo> columns)
 		{
 			var members = typeAccessor.Members;
-			if (isFSharpRecordType)
+			if (recordType == RecordType.FSharp)
 			{
 				members = new List<MemberAccessor>();
 				foreach (var member in typeAccessor.Members)
 				{
-					if (BuilderExtensions.IsFSharpRecord(MappingSchema, typeAccessor.Type, member.MemberInfo))
+					if (-1 != RecordsHelper.GetFSharpRecordMemberSequence(MappingSchema, typeAccessor.Type, member.MemberInfo))
 						members.Add(member);
 				}
 			}
@@ -227,12 +228,12 @@ namespace LinqToDB.Data
 							col.IsComplex = col.Name.Contains(".");
 						}
 
-						var typeAcc        = TypeAccessor.GetAccessor(member.Type);
-						var isFSharpRecord = BuilderExtensions.IsFSharpRecord(MappingSchema, member.Type);
+						var typeAcc          = TypeAccessor.GetAccessor(member.Type);
+						var memberRecordType = RecordsHelper.GetRecordType(MappingSchema, member.Type);
 
-						var exprs = GetExpressions(typeAcc, isFSharpRecord, cols).ToList();
+						var exprs = GetExpressions(typeAcc, memberRecordType, cols).ToList();
 
-						if (isFSharpRecord)
+						if (memberRecordType != RecordType.NotRecord)
 						{
 							var ctor      = member.Type.GetConstructors().Single();
 							var ctorParms = ctor.GetParameters();
@@ -268,7 +269,7 @@ namespace LinqToDB.Data
 			}
 		}
 
-		Expression BuildRecordConstructor(EntityDescriptor entityDescriptor, Type objectType)
+		Expression BuildRecordConstructor(EntityDescriptor entityDescriptor, Type objectType, RecordType recordType)
 		{
 			var ctor  = objectType.GetConstructors().Single();
 
@@ -283,7 +284,7 @@ namespace LinqToDB.Data
 				});
 			}
 
-			var exprs = GetExpressions(entityDescriptor.TypeAccessor, true, columns);
+			var exprs = GetExpressions(entityDescriptor.TypeAccessor, recordType, columns);
 
 			var parameters       = ctor.GetParameters();
 			var parms            = new Expression[parameters.Length];

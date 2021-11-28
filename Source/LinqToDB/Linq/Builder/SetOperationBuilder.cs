@@ -422,14 +422,46 @@ namespace LinqToDB.Linq.Builder
 
 						if (nctor != null)
 						{
-							var members = nctor.Members!
-								.Select(m => m is MethodInfo info ? info.GetPropertyInfo() : m)
-								.ToList();
+							var recordType = RecordsHelper.GetRecordType(Builder.MappingSchema, nctor.Type);
+							if ((recordType & RecordType.WithConstructor) != 0)
+							{
+								if (nctor.Members != null)
+									throw new LinqToDBException($"Call to '{nctor.Type}' record constructor cannot have initializers.");
+								else if (nctor.Arguments.Count == 0)
+									throw new LinqToDBException($"Call to '{nctor.Type}' record constructor requires parameters.");
+								else
+								{
+									var ctorParms = nctor.Constructor!.GetParameters();
 
-							expr = Expression.New(
-								nctor.Constructor!,
-								members.Select(m => ExpressionHelper.PropertyOrField(_unionParameter!, m.Name)),
-								members);
+									var parms = new List<Expression>();
+									for (var i = 0; i < ctorParms.Length; i++)
+									{
+										var p = ctorParms[i];
+										parms.Add(ExpressionHelper.PropertyOrField(_unionParameter!, p.Name!));
+									}
+
+									expr = Expression.New(nctor.Constructor!, parms);
+								}
+							}
+							else
+							{
+								if (nctor.Members == null)
+									throw new LinqToDBException($"Call to '{nctor.Type}' constructor lacks initializers.");
+								else if (nctor.Arguments.Count != 0)
+									throw new LinqToDBException($"Call to '{nctor.Type}' constructor with parameters is not supported.");
+								else
+								{
+									var members = nctor.Members
+										.Select(m => m is MethodInfo info ? info.GetPropertyInfo() : m)
+										.ToList();
+
+									expr = Expression.New(
+										nctor.Constructor!,
+										members.Select(m => ExpressionHelper.PropertyOrField(_unionParameter!, m.Name)),
+										members);
+
+								}
+							}
 
 							var ex = Builder.BuildExpression(this, expr, enforceServerSide);
 							return ex;
