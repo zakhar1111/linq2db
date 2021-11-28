@@ -561,8 +561,15 @@ namespace LinqToDB.Linq.Builder
 						}
 						else
 						{
-							var ex = Sequences[0].BuildExpression(null, level, enforceServerSide);
-							return ex;
+							Expression? ex = null;
+							foreach (var s in Sequences)
+							{
+								var res = s.BuildExpression(null, level, enforceServerSide);
+								if (ex == null)
+									ex = res;
+							}
+
+							return ex!;
 						}
 					}
 

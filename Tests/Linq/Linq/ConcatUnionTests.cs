@@ -1349,7 +1349,6 @@ namespace Tests.Linq
 			private static Expression<Func<Issue3323Table, string>> FullNameExpr() => entity => entity.FistName + " " + entity.LastName;
 		}
 
-		[ActiveIssue(3323)]
 		[Test(Description = "calculated column in set select")]
 		public void Issue3323([DataSources] string context)
 		{
