@@ -1338,9 +1338,10 @@ namespace Tests.Linq
 		[Table]
 		public class Issue3323Table
 		{
-			[PrimaryKey                      ] public int Id { get; set; }
+			[PrimaryKey                      ] public int     Id       { get; set; }
 			[Column(SkipOnEntityFetch = true)] public string? FistName { get; set; }
 			[Column(SkipOnEntityFetch = true)] public string? LastName { get; set; }
+			[Column(CanBeNull = false)       ] public string  Text     { get; set; } = null!;
 
 			[ExpressionMethod(nameof(FullNameExpr), IsColumn = true)]
 			public string FullName { get; set; } = null!;
@@ -1359,6 +1360,7 @@ namespace Tests.Linq
 				Id       = 1,
 				FistName = "one",
 				LastName = "two",
+				Text     = "text"
 			});
 
 			var res = tb.Concat(tb).ToArray();
@@ -1366,6 +1368,35 @@ namespace Tests.Linq
 			Assert.AreEqual(2, res.Length);
 			Assert.AreEqual("one two", res[0].FullName);
 			Assert.AreEqual("one two", res[1].FullName);
+		}
+
+		[Test(Description = "calculated column in set select")]
+		public void Issue3323_Mixed([DataSources] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3323Table>();
+			tb.Insert(() => new Issue3323Table()
+			{
+				Id       = 1,
+				FistName = "one",
+				LastName = "two",
+				Text     = "text"
+			});
+
+			var query1 = tb.Select(r => new { r.Id, Text = r.FullName });
+			var query2 = tb.Select(r => new { Id = r.Id + 1, Text = r.Text });
+
+			var res = query1.Concat(query2).ToArray().OrderBy(r => r.Id).ToArray();
+
+			Assert.AreEqual(2        , res.Length);
+			Assert.AreEqual("one two", res[0].Text);
+			Assert.AreEqual("text"   , res[1].Text);
+
+			res = query2.Concat(query1).ToArray().OrderBy(r => r.Id).ToArray();
+
+			Assert.AreEqual(2        , res.Length);
+			Assert.AreEqual("one two", res[0].Text);
+			Assert.AreEqual("text"   , res[1].Text);
 		}
 
 		[ActiveIssue(3150)]

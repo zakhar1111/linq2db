@@ -992,7 +992,7 @@ namespace Tests.Linq
 
 		[ActiveIssue("Scalar recursive CTE are not working: SQL logic error near *: syntax error")]
 		[Test]
-		public void TestRecursiveScalar([IncludeDataSources(TestProvName.AllSQLite)] string context)
+		public void TestRecursiveScalar([CteContextSource] string context)
 		{
 			using (var db = GetDataContext(context))
 			{
@@ -1036,26 +1036,26 @@ namespace Tests.Linq
 			{
 				var queryable = db.GetTable<OrgGroup>();
 				var cte = db.GetCte<OrgGroupDepthWrapper>(previous =>
-				    {
-				        var parentQuery = from parent in queryable
-				            select new OrgGroupDepthWrapper
-				            {
-				                OrgGroup = parent,
-				                Depth = 0
-				            };
+					{
+						var parentQuery = from parent in queryable
+							select new OrgGroupDepthWrapper
+							{
+								OrgGroup = parent,
+								Depth = 0
+							};
 
-				        var childQuery = from child in queryable
-				            from parent in previous.InnerJoin(parent => parent.OrgGroup!.Id == child.ParentId)
-				            orderby parent.Depth + 1, child.GroupName
-				            select new OrgGroupDepthWrapper
-				            {
-				                OrgGroup = child,
-				                Depth = parent.Depth + 1
-				            };
+						var childQuery = from child in queryable
+							from parent in previous.InnerJoin(parent => parent.OrgGroup!.Id == child.ParentId)
+							orderby parent.Depth + 1, child.GroupName
+							select new OrgGroupDepthWrapper
+							{
+								OrgGroup = child,
+								Depth = parent.Depth + 1
+							};
 
-				        return parentQuery.Union(childQuery);
-				    })
-				    .Select(wrapper => wrapper.OrgGroup);
+						return parentQuery.Union(childQuery);
+					})
+					.Select(wrapper => wrapper.OrgGroup);
 
 				var result = cte.ToList();
 
@@ -1456,6 +1456,154 @@ namespace Tests.Linq
 
 			query.ToArray();
 		}
+
+		[Table]
+		private class Issue3360NullInAnchor
+		{
+			[Column                                          ] public int       Id    { get; set; }
+			[NotColumn(Configuration = ProviderName.Firebird)]
+			[NotColumn(Configuration = ProviderName.DB2)     ]
+			[Column                                          ] public Guid?     Guid  { get; set; }
+			[Column(DataType = DataType.VarChar, Length = 50)] public StrEnum?  Enum1 { get; set; }
+		}
+
+		[Test(Description = "Test CTE columns typing")]
+		public void Issue3360_NullGuidInAnchor([CteContextSource(TestProvName.AllFirebird, ProviderName.DB2)] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360NullInAnchor>();
+
+			var query = db.GetCte<Issue3360NullInAnchor>(cte =>
+			{
+				return tb.Select(p => new Issue3360NullInAnchor() { Id = p.Id, Guid = null })
+				.Concat(
+					from p in cte
+					join r in tb on p.Id equals r.Id + 100
+					select new Issue3360NullInAnchor() { Id = p.Id, Guid = r.Guid }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Test(Description = "Test CTE columns typing")]
+		public void Issue3360_NullEnumInAnchor([CteContextSource(ProviderName.DB2)] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360NullInAnchor>();
+
+			var query = db.GetCte<Issue3360NullInAnchor>(cte =>
+			{
+				return tb.Select(p => new Issue3360NullInAnchor() { Id = p.Id, Enum1 = null })
+				.Concat(
+					from p in cte
+					join r in tb on p.Id equals r.Id + 100
+					select new Issue3360NullInAnchor() { Id = p.Id, Enum1 = StrEnum.One }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		[Test(Description = "Test CTE columns typing")]
+		public void Issue3360_NullEnumInAnchor_DB2([IncludeDataSources(true, ProviderName.DB2)] string context)
+		{
+			using var db = GetDataContext(context);
+			using var tb = db.CreateLocalTable<Issue3360NullInAnchor>();
+
+			var query = db.GetCte<Issue3360NullInAnchor>(cte =>
+			{
+				return tb.Select(p => new Issue3360NullInAnchor() { Id = p.Id, Enum1 = null })
+				.Concat(
+					from p in cte
+					from r in tb
+					where p.Id == r.Id + 100
+					select new Issue3360NullInAnchor() { Id = p.Id, Enum1 = StrEnum.One }
+					);
+			});
+
+			query.ToArray();
+		}
+
+		#region InvalidColumnIndexMapping issue
+		public enum InvalidColumnIndexMappingEnum1
+		{
+			[MapValue("ENUM1_VALUE")]
+			Value
+		}
+
+		public enum InvalidColumnIndexMappingEnum2
+		{
+			[MapValue("ENUM2_VALUE")]
+			Value
+		}
+
+		[Table]
+		public class InvalidColumnIndexMappingTable1
+		{
+			[PrimaryKey] public Guid Id      { get; set; }
+			[Column    ] public Guid ChildId { get; set; }
+		}
+
+		[Table]
+		public class InvalidColumnIndexMappingTable2
+		{
+			[PrimaryKey                         ] public Guid                           Id    { get; set; }
+			[Column(DataType = DataType.VarChar)] public InvalidColumnIndexMappingEnum2 Enum2 { get; set; }
+		}
+
+		[Table]
+		public class InvalidColumnIndexMappingTable3
+		{
+			[PrimaryKey                         ] public Guid                           Id    { get; set; }
+			[Column(DataType = DataType.VarChar)] public InvalidColumnIndexMappingEnum1 Enum1 { get; set; }
+		}
+
+		[Table("Configuration$Core$Widgets$Layouts")]
+		public class InvalidColumnIndexMappingTable4
+		{
+			[PrimaryKey] public Guid Id { get; set; }
+		}
+
+		private record InvalidColumnIndexMappingRecord(Guid Id, Guid? ChildId, InvalidColumnIndexMappingEnum1? Enum1, InvalidColumnIndexMappingEnum2? Enum2);
+
+		[ActiveIssue]
+		[Test(Description = "LinqToDBConvertException : Cannot convert value 'ENUM1_VALUE: System.String' to type 'Tests.Linq.CteTests+InvalidColumnIndexMappingEnum2'")]
+		public void Issue3360_InvalidColumnIndexMapping([IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context)
+		{
+			using var db = GetDataContext(context);
+
+			using var table1 = db.CreateLocalTable<InvalidColumnIndexMappingTable1>();
+			using var table2 = db.CreateLocalTable<InvalidColumnIndexMappingTable2>();
+			using var table3 = db.CreateLocalTable<InvalidColumnIndexMappingTable3>();
+			using var table4 = db.CreateLocalTable<InvalidColumnIndexMappingTable4>();
+
+			db.Insert(new InvalidColumnIndexMappingTable1() { Id = TestData.Guid1, ChildId = TestData.Guid2 });
+			db.Insert(new InvalidColumnIndexMappingTable4() { Id = TestData.Guid2 });
+
+			var query = from node in db.GetCte<InvalidColumnIndexMappingRecord>(cte =>
+			{
+				return table1
+							.Select(s => new InvalidColumnIndexMappingRecord(s.Id, s.ChildId, null, null))
+							.Concat(
+								from t1 in table2
+								join t3 in table3 on t1.Id equals t3.Id
+								join parent in cte on t1.Id equals parent.ChildId
+								select new InvalidColumnIndexMappingRecord(t1.Id, null, t3.Enum1, t1.Enum2))
+							.Concat(
+								from t4 in table4
+								join parent in cte on t4.Id equals parent.ChildId
+								select new InvalidColumnIndexMappingRecord(t4.Id, null, InvalidColumnIndexMappingEnum1.Value, null))
+							;
+			})
+				join t2 in table2 on node.Id equals t2.Id into t2records
+				from table in t2records.DefaultIfEmpty()
+				select new InvalidColumnIndexMappingRecord(node.Id, node.ChildId, node.Enum1, node.Enum2);
+
+			var res = query.ToArray();
+		}
+
+		#endregion
 
 		[Test(Description = "Test that we type non-field union column properly")]
 		public void Issue2451_ComplexColumn([IncludeDataSources(true, TestProvName.AllSqlServer2008Plus)] string context)
